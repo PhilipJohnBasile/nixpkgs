@@ -1,0 +1,136 @@
+name: Temporary refresh VecStore Nix package
+
+on:
+  push:
+    branches:
+      - vecstore-1.0.0
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: vecstore-1.0.0
+          fetch-depth: 1
+          sparse-checkout: |
+            .github
+            maintainers
+            pkgs/by-name/ve/vecstore
+
+      - uses: cachix/install-nix-action@v31
+
+      - name: Rebuild package on current Nixpkgs master
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "Philip John Basile"
+          git config user.email "PBasile@Basilecom.com"
+          git remote add upstream https://github.com/NixOS/nixpkgs.git || true
+          git fetch --depth=1 upstream master
+          git reset --hard FETCH_HEAD
+          git branch --set-upstream-to=upstream/master vecstore-1.0.0 || true
+
+          python - <<'PY'
+          from pathlib import Path
+
+          path = Path("maintainers/maintainer-list.nix")
+          text = path.read_text(encoding="utf-8")
+          if "  philipjohnbasile = {\n" not in text:
+              marker = "  Philipp-M = {\n"
+              if marker not in text:
+                  raise SystemExit("could not locate maintainer insertion point")
+              entry = (
+                  '  philipjohnbasile = {\n'
+                  '    name = "Philip John Basile";\n'
+                  '    email = "PhilipJohnBasile@gmail.com";\n'
+                  '    github = "PhilipJohnBasile";\n'
+                  '    githubId = 1419847;\n'
+                  '  };\n'
+              )
+              text = text.replace(marker, entry + marker, 1)
+              path.write_text(text, encoding="utf-8")
+          PY
+
+          git add maintainers/maintainer-list.nix
+          git commit -s -m "maintainers: add philipjohnbasile"
+
+          version="0.1.0-unstable-2026-07-10"
+          revision="82fb7c5e572c5d9aca73ff5facdc5365d9133503"
+          source_url="https://github.com/PhilipJohnBasile/vecstore/archive/${revision}.tar.gz"
+          source_hash="$(nix store prefetch-file --json --unpack "$source_url" | python -c 'import json,sys; print(json.load(sys.stdin)["hash"])')"
+
+          mkdir -p pkgs/by-name/ve/vecstore
+          cat > pkgs/by-name/ve/vecstore/package.nix <<EOF
+          {
+            lib,
+            rustPlatform,
+            fetchFromGitHub,
+            pkg-config,
+            protobuf,
+            unstableGitUpdater,
+          }:
+
+          rustPlatform.buildRustPackage (finalAttrs: {
+            pname = "vecstore";
+            version = "${version}";
+
+            src = fetchFromGitHub {
+              owner = "PhilipJohnBasile";
+              repo = "vecstore";
+              rev = "${revision}";
+              hash = "${source_hash}";
+            };
+
+            cargoLock.lockFile = "\${finalAttrs.src}/Cargo.lock";
+
+            nativeBuildInputs = [
+              pkg-config
+              protobuf
+            ];
+
+            buildFeatures = [ "server" ];
+
+            cargoBuildFlags = [
+              "--bin"
+              "vecstore-server"
+            ];
+
+            passthru.updateScript = unstableGitUpdater { };
+
+            meta = {
+              description = "Embeddable vector database with HNSW search and RAG tooling";
+              homepage = "https://github.com/PhilipJohnBasile/vecstore";
+              license = lib.licenses.mit;
+              maintainers = [ lib.maintainers.philipjohnbasile ];
+              mainProgram = "vecstore-server";
+              platforms = lib.platforms.unix;
+            };
+          })
+          EOF
+
+          nix shell nixpkgs#nixfmt-rfc-style -c nixfmt pkgs/by-name/ve/vecstore/package.nix
+          nix-instantiate --parse pkgs/by-name/ve/vecstore/package.nix >/dev/null
+          git diff --check
+          git add pkgs/by-name/ve/vecstore/package.nix
+          git commit -s -m "vecstore: init at ${version}"
+
+          test "$(git rev-list --count upstream/master..HEAD)" = "2"
+          test "$(git log --format=%s upstream/master..HEAD | tail -1)" = "maintainers: add philipjohnbasile"
+          test "$(git log -1 --format=%s)" = "vecstore: init at ${version}"
+          test ! -e .github/workflows/temporary-refresh-vecstore-nix.yml
+          git diff --check upstream/master...HEAD
+
+      - name: Push refreshed branch
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git push \
+            "https://x-access-token:${GH_TOKEN}@github.com/PhilipJohnBasile/nixpkgs.git" \
+            HEAD:vecstore-1.0.0 \
+            --force-with-lease=refs/heads/vecstore-1.0.0:${GITHUB_SHA}
