@@ -4,7 +4,7 @@
   fetchFromGitHub,
   runCommand,
   buildNpmPackage,
-  nodejs,
+  nodejs_22,
   ffmpeg-full,
   nunicode,
   util-linux,
@@ -15,10 +15,10 @@
 
 let
   source = {
-    version = "2.30.0";
-    hash = "sha256-4nmKTB/EUiyoOzti0BjbKrfnu3CA9XJnekgxFporVyI=";
-    npmDepsHash = "sha256-apr7s6GeYAAYg5n9gJjG9MVRPXJnpJoIvVyyAFw3Als=";
-    clientNpmDepsHash = "sha256-+yDIgQENUmUcxytym8Ke4M6CJ915BvdhgtQFc+ykiD8=";
+    version = "2.36.0";
+    hash = "sha256-oohjRiKARpIyoPFEXR24nlKK4xBBEHUMVTaq/i6NfV8=";
+    npmDepsHash = "sha256-uDIL9PxbFUa3MwLoPomTfq1A/R1ewDIv+EFWml/8uy8=";
+    clientNpmDepsHash = "sha256-0xqqpls8FLuXngjjdwjoNLpq9dSixWouROviTjsFCbU=";
   };
 
   src = fetchFromGitHub {
@@ -31,6 +31,8 @@ let
   client = buildNpmPackage {
     pname = "audiobookshelf-client";
     inherit (source) version;
+
+    nodejs = nodejs_22;
 
     src = runCommand "cp-source" { } ''
       cp -r ${src}/client $out
@@ -59,6 +61,7 @@ buildNpmPackage {
 
   inherit src;
   inherit (source) npmDepsHash version;
+  nodejs = nodejs_22;
 
   buildInputs = [ util-linux ];
   nativeBuildInputs = [ python3 ];
@@ -67,15 +70,19 @@ buildNpmPackage {
   npmInstallFlags = [ "--only-production" ];
 
   installPhase = ''
+    runHook preInstall
+
     mkdir -p $out/opt/client
     cp -r index.js server package* node_modules $out/opt/
     cp -r ${client}/lib/node_modules/audiobookshelf-client/dist $out/opt/client/dist
     mkdir $out/bin
 
     echo '${wrapper}' > $out/bin/audiobookshelf
-    echo "  exec ${nodejs}/bin/node $out/opt/index.js" >> $out/bin/audiobookshelf
+    echo "  exec ${nodejs_22}/bin/node $out/opt/index.js" >> $out/bin/audiobookshelf
 
     chmod +x $out/bin/audiobookshelf
+
+    runHook postInstall
   '';
 
   passthru = {

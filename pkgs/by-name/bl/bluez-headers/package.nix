@@ -2,6 +2,7 @@
   lib,
   stdenv,
   fetchurl,
+  bluez,
 }:
 
 # This package only provides the bluetooth headers from the bluez package
@@ -10,26 +11,30 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "bluez-headers";
-  version = "5.83";
+  version = "5.87";
 
   # This package has the source, because of the emulatorAvailable check in the
   # bluez function args, that causes an infinite recursion with Python on cross
   # builds.
   src = fetchurl {
     url = "mirror://kernel/linux/bluetooth/bluez-${finalAttrs.version}.tar.xz";
-    hash = "sha256-EIUi2QnSIFgTmb/sk9qrYgNVOc7vPdo+eZcHhcY70kw=";
+    hash = "sha256-Jr3PLOvXMQxvWYhQYGsDfvDFFf5mCOvFTSLFDEwys18=";
   };
 
   dontConfigure = true;
   dontBuild = true;
 
   installPhase = ''
-    mkdir -p $out/include/bluetooth
-    cp -v lib/*.h "$out/include/bluetooth/"
+    mkdir -p $out/include/
+    cp -rv lib/* "$out/include/"
   '';
 
+  passthru.tests = {
+    inherit bluez; # inherits bluez-headers.src
+  };
+
   meta = {
-    homepage = "https://www.bluez.org/";
+    homepage = "https://bluez.github.io/";
     description = "Official Linux Bluetooth protocol stack";
     changelog = "https://git.kernel.org/pub/scm/bluetooth/bluez.git/tree/ChangeLog?h=${finalAttrs.version}";
     license = with lib.licenses; [

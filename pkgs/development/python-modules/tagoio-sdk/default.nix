@@ -13,16 +13,16 @@
   sseclient-py,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "tagoio-sdk";
-  version = "5.0.4";
+  version = "5.1.4";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "tago-io";
     repo = "sdk-python";
-    tag = "v${version}";
-    hash = "sha256-a+cwDPYLfDgMiWf7jpFszwdueFbnfNgwZLWQrffjBqU=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-pNkG1T1eIvAGc0v+FXdDYxHea7whFN2Uq8Ozj7rJ/fQ=";
   };
 
   pythonRelaxDeps = [ "requests" ];
@@ -45,11 +45,11 @@ buildPythonPackage rec {
 
   pythonImportsCheck = [ "tagoio_sdk" ];
 
-  meta = with lib; {
+  meta = {
     description = "Module for interacting with Tago.io";
     homepage = "https://github.com/tago-io/sdk-python";
-    changelog = "https://github.com/tago-io/sdk-python/releases/tag/${src.tag}";
-    license = licenses.asl20;
-    maintainers = with maintainers; [ fab ];
+    changelog = "https://github.com/tago-io/sdk-python/releases/tag/${finalAttrs.src.tag}";
+    license = lib.licenses.asl20;
+    maintainers = with lib.maintainers; [ fab ];
   };
-}
+})

@@ -1,11 +1,14 @@
 {
   lib,
   fetchFromGitHub,
-  crystal,
+  crystal_1_19,
   copyDesktopItems,
   gtk3,
   libxkbcommon,
-  xorg,
+  libxinerama,
+  libxtst,
+  libxext,
+  libxi,
   libnotify,
   gobject-introspection, # needed to build gi-crystal
   openbox,
@@ -20,15 +23,11 @@
 # NOTICE: AHK_X11 from this package does not support compiling scripts into portable executables.
 let
   pname = "ahk_x11";
-  version = "1.0.6";
-
-  inherit (xorg)
-    libXinerama
-    libXtst
-    libXext
-    libXi
-    ;
-
+  version = "1.0.7";
+  # Pinning to Crystal 1.19.x since ahk_x11 crashes with segmentation
+  # fault when built using >=1.20.0
+  # Refernce: https://github.com/phil294/AHK_X11/pull/127
+  crystal = crystal_1_19;
 in
 crystal.buildCrystalPackage {
   inherit pname version;
@@ -37,7 +36,7 @@ crystal.buildCrystalPackage {
     owner = "phil294";
     repo = "AHK_X11";
     tag = version;
-    hash = "sha256-t2fGUIG3T8azx22lFhFAkABHwkePv9uThhlH+fwDj8E=";
+    hash = "sha256-VuqLlRgNyF6/4aVq1sNlVjOMih0TdHXbr0CqhA4QT6Y=";
     fetchSubmodules = true;
   };
 
@@ -67,7 +66,7 @@ crystal.buildCrystalPackage {
 
   postInstall = ''
     install -Dm644 -t $out/share/licenses/ahk_x11/ LICENSE
-    install -Dm644 -t $out/share/pixmaps/ assets/ahk_x11.png
+    install -Dm644 -t $out/share/icons/hicolor/48x48/apps/ assets/ahk_x11.png
     install -Dm644 -t $out/share/applications/ assets/*.desktop
     install -Dm644 assets/ahk_x11-mime.xml $out/share/mime/packages/ahk_x11.xml
   '';
@@ -75,10 +74,10 @@ crystal.buildCrystalPackage {
   buildInputs = [
     gtk3
     libxkbcommon
-    libXinerama
-    libXtst
-    libXext
-    libXi
+    libxinerama
+    libxtst
+    libxext
+    libxi
     libnotify
   ];
   nativeBuildInputs = [

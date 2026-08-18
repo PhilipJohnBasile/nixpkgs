@@ -5,23 +5,23 @@
   makeDesktopItem,
   copyDesktopItems,
   makeWrapper,
-  electron_36,
+  electron_42,
 }:
 let
-  electron = electron_36;
+  electron = electron_42;
 in
 buildNpmPackage rec {
   pname = "pocket-casts";
-  version = "0.10.5";
+  version = "0.13.0";
 
   src = fetchFromGitHub {
     owner = "felicianotech";
     repo = "pocket-casts-desktop-app";
     rev = "v${version}";
-    hash = "sha256-LB0SOAcgCZuNKOWhL9m4cDF9q+voVd+2OYVeKTq7OB0=";
+    hash = "sha256-v5R83h+AHpGbh3pXehalEjuD+s5grAowgGfvr7FsJKU=";
   };
 
-  npmDepsHash = "sha256-i8IKH3sacYWLa2GtcJSoWCy5eV9vC79dP9WVN2Iy7DE=";
+  npmDepsHash = "sha256-335PYsGbYwYtMoLi1UkwdX3mPA0DOs79Lm1Kg7V83ZM=";
 
   env.ELECTRON_SKIP_BINARY_DOWNLOAD = "1";
 
@@ -53,12 +53,12 @@ buildNpmPackage rec {
       --add-flags $out/lib/node_modules/pocket-casts/main.js
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Pocket Casts webapp, packaged for the Linux Desktop";
     homepage = "https://github.com/felicianotech/pocket-casts-desktop-app";
-    license = licenses.mit;
-    maintainers = with maintainers; [ yayayayaka ];
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [ yayayayaka ];
     mainProgram = "pocket-casts";
-    platforms = platforms.linux;
+    platforms = lib.platforms.linux;
   };
 }

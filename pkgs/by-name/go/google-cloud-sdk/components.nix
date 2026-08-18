@@ -2,7 +2,6 @@
   lib,
   stdenv,
   fetchurl,
-  system,
   snapshotPath,
   autoPatchelfHook,
   python3,
@@ -125,7 +124,7 @@ let
     };
 
   # Filter out dependencies not supported by current system
-  filterForSystem = builtins.filter (drv: builtins.elem system drv.meta.platforms);
+  filterForSystem = builtins.filter (drv: lib.meta.availableOn stdenv.hostPlatform drv);
 
   # Make a google-cloud-sdk component
   mkComponent =
@@ -167,7 +166,7 @@ let
         fi
 
         # Write the snapshot file to the `.install` folder
-        cp $snapshotPath $out/google-cloud-sdk/.install/${pname}.snapshot.json
+        printf "%s" "$snapshot" > $out/google-cloud-sdk/.install/${pname}.snapshot.json
       '';
       nativeBuildInputs = [
         python3
@@ -182,7 +181,7 @@ let
       passthru = {
         dependencies = filterForSystem dependencies;
       };
-      passAsFile = [ "snapshot" ];
+      __structuredAttrs = true;
       meta = {
         inherit description platforms;
       };

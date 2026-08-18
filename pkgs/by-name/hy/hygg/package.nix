@@ -10,16 +10,16 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "hygg";
-  version = "0.1.19";
+  version = "0.1.21";
 
   src = fetchFromGitHub {
     owner = "kruseio";
     repo = "hygg";
-    tag = "${finalAttrs.version}";
-    hash = "sha256-wxgHlRqe/g9LppWWTzft9hTA8heuFvGkKvA7nG2PsxA=";
+    tag = finalAttrs.version;
+    hash = "sha256-Gu56WH7Sp1y/fXwEOOACUAe8nshvc6d2302YwPvM+ZM=";
   };
 
-  cargoHash = "sha256-JqM7e/xfqZnN3FuXPSEaQRH4yh5hqp2HGYM0YIcnaW4=";
+  cargoHash = "sha256-AUkwjgF/LwOvbhOWcrK8ayvL2/MSc7GFh+/bfdZ28/8=";
 
   nativeBuildInputs = [
     writableTmpDirAsHomeHook
@@ -28,7 +28,11 @@ rustPlatform.buildRustPackage (finalAttrs: {
     # e2e test fails since it cant find the input pdf file
     "--skip=tests::test_end_to_end"
     "--skip=test_epub_processing"
-  ];
+  ]
+  ## Skipping this test due to the high variability of its outcome
+  ## When the package was merged the test was passing but on hydra its not
+  ## Look at PR #448907
+  ++ (if pkgs.stdenv.hostPlatform.isDarwin then [ "--skip=test_stdin_processing" ] else [ ]);
 
   doInstallCheck = true;
   nativeInstallCheckInputs = [ versionCheckHook ];

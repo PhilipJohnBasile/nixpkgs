@@ -6,7 +6,6 @@
   pkg-config,
   cmake,
   alsa-lib,
-  glib,
   libjack2,
   libsndfile,
   libpulseaudio,
@@ -14,13 +13,14 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "fluidsynth";
-  version = "2.4.8";
+  version = "2.5.6";
 
   src = fetchFromGitHub {
     owner = "FluidSynth";
     repo = "fluidsynth";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-rOPoRV0NWrlFZohqQ76gnXvt4/ryEI4nSlX+mNW+qf8=";
+    hash = "sha256-q4NdfemCprYEYCrKlHumeRM8TyNz8eJcFM18EsB0p0c=";
+    fetchSubmodules = true;
   };
 
   outputs = [
@@ -36,7 +36,7 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   buildInputs = [
-    glib
+    stdenv.cc.cc.lib
     libsndfile
     libjack2
   ]
@@ -47,14 +47,16 @@ stdenv.mkDerivation (finalAttrs: {
 
   cmakeFlags = [
     "-Denable-framework=off"
+    "-Dosal=cpp11"
+    "-Denable-libinstpatch=0"
   ];
 
   meta = {
+    changelog = "https://github.com/FluidSynth/fluidsynth/blob/${finalAttrs.src.tag}/doc/wiki/ChangeLog.md";
     description = "Real-time software synthesizer based on the SoundFont 2 specifications";
     homepage = "https://www.fluidsynth.org";
     license = lib.licenses.lgpl21Plus;
     maintainers = with lib.maintainers; [
-      lovek323
       guylamar2006
     ];
     platforms = lib.platforms.unix;

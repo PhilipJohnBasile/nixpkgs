@@ -6,7 +6,6 @@
   ncurses,
   gettext,
   pigeon,
-  go-mockery,
   protoc-go-inject-tag,
   libxcrypt,
   vips,
@@ -20,21 +19,22 @@ let
   bingoBinsMakefile = builtins.concatStringsSep "\n" (
     lib.mapAttrsToList (n: v: "${n} := ${v}\n\\$(${n}):") {
       GO_XGETTEXT = "xgettext";
-      MOCKERY = "mockery";
+      # no need to generate mocks, as they are in-repo already
+      MOCKERY = "true";
       PIGEON = "pigeon";
       PROTOC_GO_INJECT_TAG = "protoc-go-inject-tag";
     }
   );
 in
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "opencloud";
-  version = "3.5.0";
+  version = "7.4.0";
 
   src = fetchFromGitHub {
     owner = "opencloud-eu";
     repo = "opencloud";
-    tag = "v${version}";
-    hash = "sha256-NPBz9pevjDUqDrEg/S6Vtk+jAA9f2H95ehO8EgcB1eY=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-/j3aXAzsIWPHNIRcHLlbi6Y53be5d5GBqrVIZCk0bEw=";
   };
 
   postPatch = ''
@@ -65,7 +65,7 @@ buildGoModule rec {
     "-X"
     "github.com/opencloud-eu/opencloud/pkg/version.String=nixos"
     "-X"
-    "github.com/opencloud-eu/opencloud/pkg/version.Tag=${version}"
+    "github.com/opencloud-eu/opencloud/pkg/version.Tag=${finalAttrs.version}"
     "-X"
     "github.com/opencloud-eu/opencloud/pkg/version.Date=19700101"
   ];
@@ -76,7 +76,6 @@ buildGoModule rec {
     ncurses
     gettext
     pigeon
-    go-mockery
     protoc-go-inject-tag
     pkg-config
   ];
@@ -94,8 +93,10 @@ buildGoModule rec {
 
   env = {
     # avoids 'make generate' calling `git`, otherwise no-op
-    STRING = version;
-    VERSION = version;
+    STRING = finalAttrs.version;
+    VERSION = finalAttrs.version;
+    # avoids weird test failure
+    AUTOMEMLIMIT = "off";
   };
 
   excludedPackages = [ "tests/*" ];
@@ -114,7 +115,7 @@ buildGoModule rec {
   meta = {
     description = "OpenCloud gives you a secure and private way to store, access, and share your files";
     homepage = "https://github.com/opencloud-eu/opencloud";
-    changelog = "https://github.com/opencloud-eu/opencloud/blob/${src.tag}/CHANGELOG.md";
+    changelog = "https://github.com/opencloud-eu/opencloud/blob/${finalAttrs.src.tag}/CHANGELOG.md";
     license = lib.licenses.asl20;
     maintainers = with lib.maintainers; [
       christoph-heiss
@@ -122,4 +123,4 @@ buildGoModule rec {
     ];
     mainProgram = "opencloud";
   };
-}
+})

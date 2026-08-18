@@ -5,87 +5,100 @@
   fetchFromGitHub,
 
   # build-system
-  deprecation,
-  poetry-core,
+  setuptools,
 
   # dependencies
+  aiohttp,
   cloudevents,
+  cryptography,
   fastapi,
   grpc-interceptor,
   grpcio,
+  grpcio-tools,
+  h11,
   httpx,
   kubernetes,
   numpy,
   orjson,
   pandas,
+  prometheus-client,
+  protobuf,
+  psutil,
+  pyasn1,
+  pydantic,
+  python-dateutil,
+  python-multipart,
+  pyyaml,
+  six,
+  starlette,
+  tabulate,
+  timing-asgi,
+  urllib3,
   uvicorn,
 
   # optional-dependencies
-  azure-identity,
-  azure-storage-blob,
-  azure-storage-file-share,
-  boto3,
-  google-cloud-storage,
-  huggingface-hub,
+  # storage
+  kserve-storage,
+  # logging
   asgi-logger,
+  # ray
   ray,
+  # llm
   vllm,
-
-  prometheus-client,
-  protobuf,
-  requests,
-  psutil,
-  pydantic,
-  python-dateutil,
-  pyyaml,
-  six,
-  tabulate,
-  timing-asgi,
 
   # tests
   avro,
   grpcio-testing,
+  jinja2,
   pytest-asyncio,
+  pytest-cov-stub,
   pytest-httpx,
   pytest-xdist,
   pytestCheckHook,
   tomlkit,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "kserve";
-  version = "0.15.2";
+  version = "0.20.0";
   pyproject = true;
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "kserve";
     repo = "kserve";
-    tag = "v${version}";
-    hash = "sha256-NklR2Aoa5UdWkqNOfX+xl3R158JDSQtStXv9DkklOwM=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-XSEdhYrsSdrKjHnFCoMPoS0nAZ+Fa8JGj+izVw3wl0o=";
   };
 
-  sourceRoot = "${src.name}/python/kserve";
+  sourceRoot = "${finalAttrs.src.name}/python/kserve";
+
+  build-system = [
+    setuptools
+  ];
 
   pythonRelaxDeps = [
+    "cryptography"
     "fastapi"
     "httpx"
     "numpy"
+    "pandas"
     "prometheus-client"
     "protobuf"
-    "uvicorn"
     "psutil"
+    "python-multipart"
+    "starlette"
+    "uvicorn"
   ];
-
-  build-system = [
-    deprecation
-    poetry-core
-  ];
-
   dependencies = [
+    aiohttp
     cloudevents
+    cryptography
     fastapi
     grpc-interceptor
     grpcio
+    grpcio-tools
+    h11
     httpx
     kubernetes
     numpy
@@ -94,28 +107,31 @@ buildPythonPackage rec {
     prometheus-client
     protobuf
     psutil
+    pyasn1
     pydantic
     python-dateutil
+    python-multipart
     pyyaml
     six
+    starlette
     tabulate
     timing-asgi
+    urllib3
     uvicorn
-  ];
+  ]
+  ++ uvicorn.optional-dependencies.standard;
 
   optional-dependencies = {
     storage = [
-      azure-identity
-      azure-storage-blob
-      azure-storage-file-share
-      boto3
-      huggingface-hub
-      google-cloud-storage
-      requests
+      kserve-storage
+    ];
+    logging = [
+      asgi-logger
+    ];
+    ray = [
+      ray
     ]
-    ++ huggingface-hub.optional-dependencies.hf_transfer;
-    logging = [ asgi-logger ];
-    ray = [ ray ];
+    ++ ray.optional-dependencies.serve;
     llm = [
       vllm
     ];
@@ -124,13 +140,15 @@ buildPythonPackage rec {
   nativeCheckInputs = [
     avro
     grpcio-testing
+    jinja2
     pytest-asyncio
+    pytest-cov-stub
     pytest-httpx
     pytest-xdist
     pytestCheckHook
     tomlkit
   ]
-  ++ lib.flatten (builtins.attrValues optional-dependencies);
+  ++ lib.concatAttrValues finalAttrs.passthru.optional-dependencies;
 
   pythonImportsCheck = [ "kserve" ];
 
@@ -161,6 +179,23 @@ buildPythonPackage rec {
   ];
 
   disabledTests = [
+    # TypeError: Cannot interpret '<StringDtype(na_value=nan)>' as a data type
+    "test_fp16_input_as_binary_data"
+
+    # AttributeError: 'google._upb._message.FieldDescriptor' object has no attribute 'label'
+    "test_health_handler"
+    "test_list_handler"
+    "test_liveness_handler"
+    "test_server_readiness"
+
+    # Started failing since vllm was updated to 0.13.0
+    # pydantic_core._pydantic_core.ValidationError: 1 validation error for RerankResponse
+    # usage.prompt_tokens
+    #   Field required [type=missing, input_value={'total_tokens': 100}, input_type=dict]
+    #     For further information visit https://errors.pydantic.dev/2.11/v/missing
+    "test_create_rerank"
+    "test_create_embedding"
+
     # AssertionError: assert CompletionReq...lm_xargs=None) == CompletionReq...lm_xargs=None)
     "test_convert_params"
 
@@ -185,8 +220,8 @@ buildPythonPackage rec {
   meta = {
     description = "Standardized Serverless ML Inference Platform on Kubernetes";
     homepage = "https://github.com/kserve/kserve/tree/master/python/kserve";
-    changelog = "https://github.com/kserve/kserve/releases/tag/${src.tag}";
+    changelog = "https://github.com/kserve/kserve/releases/tag/${finalAttrs.src.tag}";
     license = lib.licenses.asl20;
     maintainers = with lib.maintainers; [ GaetanLepage ];
   };
-}
+})

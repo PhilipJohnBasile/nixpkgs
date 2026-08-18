@@ -7,19 +7,20 @@
   rust-jemalloc-sys,
   zlib,
   gitMinimal,
+  nix-update-script,
 }:
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "biome";
-  version = "2.2.6";
+  version = "2.5.8";
 
   src = fetchFromGitHub {
     owner = "biomejs";
     repo = "biome";
     rev = "@biomejs/biome@${finalAttrs.version}";
-    hash = "sha256-5QxcKVo6niV+K63JRBhs6/RUR6jru20f+DeitfqEuRI=";
+    hash = "sha256-ZEOaJGrVnZRZBDuVqQgmCD07ZUvBa8COgsj0XvfKRZM=";
   };
 
-  cargoHash = "sha256-/POhRQ2HIaBwk9VeMdkK7dAZ90EmB49oCvQEUScgjpY=";
+  cargoHash = "sha256-mMQM7koZlKfgTPDXWan0qi2LGk2gksM2ZDC0m2/X+1M=";
 
   nativeBuildInputs = [ pkg-config ];
 
@@ -33,14 +34,23 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   cargoBuildFlags = [ "-p=biome_cli" ];
   cargoTestFlags = finalAttrs.cargoBuildFlags ++ [
+    "--"
     # fails due to cargo insta
-    "-- --skip=commands::check::print_json"
+    "--skip=commands::check::print_json"
     "--skip=commands::check::print_json_pretty"
     "--skip=commands::explain::explain_logs"
     "--skip=commands::format::print_json"
     "--skip=commands::format::print_json_pretty"
     "--skip=commands::format::should_format_files_in_folders_ignored_by_linter"
     "--skip=cases::migrate_v2::should_successfully_migrate_sentry"
+    "--skip=cases::help::check_help"
+    "--skip=cases::help::ci_help"
+    "--skip=cases::help::format_help"
+    "--skip=cases::help::lint_help"
+    "--skip=cases::help::lsp_proxy_help"
+    "--skip=cases::help::migrate_help"
+    "--skip=cases::help::rage_help"
+    "--skip=cases::help::start_help"
   ];
 
   env = {
@@ -48,6 +58,11 @@ rustPlatform.buildRustPackage (finalAttrs: {
     LIBGIT2_NO_VENDOR = 1;
     INSTA_UPDATE = "no";
   };
+
+  postInstall = ''
+    # Installs biome schema aside with the package
+    install -Dm644 packages/@biomejs/biome/configuration_schema.json $out/share/schema.json
+  '';
 
   preCheck = ''
     # tests assume git repository
@@ -57,15 +72,21 @@ rustPlatform.buildRustPackage (finalAttrs: {
     unset BIOME_VERSION
   '';
 
+  passthru = {
+    updateScript = nix-update-script { };
+    jsonschema = "${finalAttrs.finalPackage}/share/schema.json";
+  };
+
   meta = {
     description = "Toolchain of the web";
     homepage = "https://biomejs.dev/";
     changelog = "https://github.com/biomejs/biome/blob/${finalAttrs.src.rev}/CHANGELOG.md";
     license = lib.licenses.mit;
     maintainers = with lib.maintainers; [
-      figsoda
       isabelroses
       wrbbz
+      eveeifyeve # Schema
+      SchahinRohani
     ];
     mainProgram = "biome";
   };

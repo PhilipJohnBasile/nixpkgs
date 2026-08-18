@@ -17,7 +17,7 @@
   udev,
   udevCheckHook,
   onlyLib ? stdenv.hostPlatform.isStatic,
-  # Otherwise we have a infinity recursion during static compilation
+  # Otherwise we have an infinite recursion during static compilation
   enableUtilLinux ? !stdenv.hostPlatform.isStatic,
   util-linux,
   enableVDO ? false,
@@ -28,7 +28,6 @@
   multipath-tools,
   nixosTests,
   buildFHSEnv,
-  recurseIntoAttrs,
 }:
 
 # configure: error: --enable-dmeventd requires --enable-cmdlib to be used as well
@@ -144,8 +143,6 @@ stdenv.mkDerivation rec {
       }
     ))
     ./fix-stdio-usage.patch
-    # https://gitlab.com/lvmteam/lvm2/-/merge_requests/33
-    ./fix-manpage-reproducibility.patch
   ];
 
   doCheck = false; # requires root
@@ -205,7 +202,7 @@ stdenv.mkDerivation rec {
       moveToOutput bin/lvmdump $scripts
       moveToOutput bin/lvm_import_vdo $scripts
       moveToOutput bin/lvmpersist $scripts
-      moveToOutput libexec/lvresize_fs_helper $scripts/lib
+      moveToOutput libexec/lvresize_fs_helper $scripts
     ''
     + lib.optionalString (!enableCmdlib) ''
       moveToOutput lib/libdevmapper.so $lib
@@ -224,7 +221,7 @@ stdenv.mkDerivation rec {
 
   passthru.tests = {
     installer = nixosTests.installer.lvm;
-    lvm2 = recurseIntoAttrs nixosTests.lvm2;
+    lvm2 = lib.recurseIntoAttrs nixosTests.lvm2;
 
     # https://github.com/NixOS/nixpkgs/issues/369732
     lvm2-fhs-env = buildFHSEnv {
@@ -233,16 +230,19 @@ stdenv.mkDerivation rec {
     };
   };
 
-  meta = with lib; {
+  meta = {
+    changelog = "https://gitlab.com/lvmteam/lvm2/-/blob/v${
+      lib.replaceString "." "_" version
+    }/WHATS_NEW";
     homepage = "http://sourceware.org/lvm2/";
     description = "Tools to support Logical Volume Management (LVM) on Linux";
-    platforms = platforms.linux;
-    license = with licenses; [
+    platforms = lib.platforms.linux;
+    license = with lib.licenses; [
       gpl2Only
       bsd2
       lgpl21
     ];
-    maintainers = with maintainers; [
+    maintainers = with lib.maintainers; [
       raskin
       ajs124
     ];

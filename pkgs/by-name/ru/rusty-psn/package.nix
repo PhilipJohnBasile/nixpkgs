@@ -11,7 +11,11 @@
   gtk3,
   freetype,
   openssl,
-  xorg,
+  libxrandr,
+  libxi,
+  libxcursor,
+  libx11,
+  libxcb,
   libGL,
   libxkbcommon,
   wayland,
@@ -20,16 +24,16 @@
 
 rustPlatform.buildRustPackage rec {
   pname = "rusty-psn";
-  version = "0.5.9";
+  version = "0.6.0";
 
   src = fetchFromGitHub {
     owner = "RainbowCookie32";
     repo = "rusty-psn";
     tag = "v${version}";
-    hash = "sha256-Al0cT4WaOX7gxOkD5ciRntbGLCCDFSjj83E4n8nXp6I=";
+    hash = "sha256-xdhNwKWJ2DjwKAPCeW26Ccl7oCmWdlNoAdZQKcDU8Ew=";
   };
 
-  cargoHash = "sha256-FaKUQk/Q2hE0lZ11QSKA2P2BLlBNih47zzuwpMsblhw=";
+  cargoHash = "sha256-Kf/+5u1zPLNCFhT+IDvFWnrG4TfcjzJjaTw8w0vyfi0=";
 
   # Tests require network access
   doCheck = false;
@@ -51,12 +55,12 @@ rustPlatform.buildRustPackage rec {
     gtk3
     freetype
     openssl
-    xorg.libxcb
-    xorg.libX11
-    xorg.libXcursor
-    xorg.libXrandr
-    xorg.libXi
-    xorg.libxcb
+    libxcb
+    libx11
+    libxcursor
+    libxrandr
+    libxi
+    libxcb
     libGL
     libxkbcommon
     wayland

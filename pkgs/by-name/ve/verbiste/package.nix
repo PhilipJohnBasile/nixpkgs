@@ -3,7 +3,6 @@
   stdenv,
   fetchurl,
   pkg-config,
-  gtk2,
   libxml2,
 }:
 
@@ -18,10 +17,9 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [ pkg-config ];
 
-  buildInputs = [
-    gtk2
-    libxml2
-  ];
+  buildInputs = [ libxml2 ];
+
+  configureFlags = [ "--without-gtk-app" ];
 
   enableParallelBuilding = true;
 
@@ -30,6 +28,6 @@ stdenv.mkDerivation (finalAttrs: {
     description = "French and Italian verb conjugator";
     license = lib.licenses.gpl2Plus;
     platforms = lib.platforms.linux;
-    maintainers = with lib.maintainers; [ orivej ];
+    maintainers = [ ];
   };
 })

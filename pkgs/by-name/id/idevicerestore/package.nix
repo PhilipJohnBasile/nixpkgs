@@ -11,15 +11,15 @@
   libusbmuxd,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "idevicerestore";
-  version = "1.0.0-unstable-2025-10-02";
+  version = "1.0.0-unstable-2026-07-26";
 
   src = fetchFromGitHub {
     owner = "libimobiledevice";
     repo = "idevicerestore";
-    rev = "f4d0f7e83105cc362527566315abee07b0840848";
-    hash = "sha256-fqTVAHTxamk2lIllr7ZNHOJ1YTJHM4JpVQylMV33CJI=";
+    rev = "45145e9fdc8458022c61a4b87bd029b866d5bcdc";
+    hash = "sha256-0W0DEnO8eZx2G3JKjp7SilLH8vmpfkiJxrwkudyf5rM=";
   };
 
   nativeBuildInputs = [
@@ -39,10 +39,10 @@ stdenv.mkDerivation rec {
   ];
 
   preAutoreconf = ''
-    export RELEASE_VERSION=${version}
+    export RELEASE_VERSION=${finalAttrs.version}
   '';
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/libimobiledevice/idevicerestore";
     description = "Restore/upgrade firmware of iOS devices";
     longDescription = ''
@@ -52,16 +52,19 @@ stdenv.mkDerivation rec {
       restore of a firmware to a device.
 
       In general, upgrades and downgrades are possible, however subject to
-      availability of SHSH blobs from Apple for signing the firmare files.
+      availability of SHSH blobs from Apple for signing the firmware files.
 
       To restore a device to some firmware, simply run the following:
       $ sudo idevicerestore -l
 
       This will download and restore a device to the latest firmware available.
     '';
-    license = licenses.lgpl21Plus;
-    platforms = platforms.unix;
-    maintainers = with maintainers; [ nh2 ];
+    license = lib.licenses.lgpl21Plus;
+    platforms = lib.platforms.unix;
+    maintainers = with lib.maintainers; [
+      flokli
+      nh2
+    ];
     mainProgram = "idevicerestore";
   };
-}
+})

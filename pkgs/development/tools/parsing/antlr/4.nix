@@ -8,9 +8,6 @@
   ninja,
   pkg-config,
 
-  # darwin only
-  CoreFoundation ? null,
-
   # ANTLR 4.8 & 4.9
   libuuid,
 
@@ -86,6 +83,7 @@ let
           sourceProvenance = with lib.sourceTypes; [ binaryBytecode ];
           license = lib.licenses.bsd3;
           platforms = lib.platforms.unix;
+          maintainers = with lib.maintainers; [ sarahec ];
         };
       };
 
@@ -119,6 +117,7 @@ let
             homepage = "https://www.antlr.org/";
             license = lib.licenses.bsd3;
             platforms = lib.platforms.unix;
+            maintainers = with lib.maintainers; [ sarahec ];
           };
         };
       };

@@ -21,23 +21,27 @@ let
     ];
   };
 in
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "hyperscan";
-  version = "0.7.25";
+  version = "0.8.2";
   pyproject = true;
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "darvid";
     repo = "python-hyperscan";
-    tag = "v${version}";
-    hash = "sha256-YFT/SPAI/H6D7paWL/9rMyvY1s7ffE9bDHcQ9TbbA6w=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-jIDUfl6ReWvypfWecM8hReux6YxzXSsLCFU3AO97xUY=";
   };
 
-  env.CMAKE_ARGS = "-DHS_SRC_ROOT=${pkgs.hyperscan.src} -DHS_BUILD_LIB_ROOT=${lib-deps}/lib";
+  env.CMAKE_ARGS = lib.toString [
+    (lib.cmakeFeature "HS_SRC_ROOT" pkgs.hyperscan.src.outPath)
+    (lib.cmakeFeature "HS_BUILD_LIB_ROOT" "${lib-deps}/lib")
+  ];
 
   dontUseCmakeConfigure = true;
 
-  nativeBuildInputs = [
+  build-system = [
     cmake
     pathspec
     ninja
@@ -53,15 +57,14 @@ buildPythonPackage rec {
     pytest-mock
   ];
 
-  meta = with lib; {
+  meta = {
     description = "CPython extension for the Hyperscan regular expression matching library";
     homepage = "https://github.com/darvid/python-hyperscan";
-    changelog = "https://github.com/darvid/python-hyperscan/blob/${src.tag}/CHANGELOG.md";
+    changelog = "https://github.com/darvid/python-hyperscan/blob/${finalAttrs.src.tag}/CHANGELOG.md";
     platforms = [
       "x86_64-linux"
-      "x86_64-darwin"
     ];
-    license = licenses.mit;
-    maintainers = with maintainers; [ mbalatsko ];
+    license = lib.licenses.mit;
+    maintainers = [ ];
   };
-}
+})

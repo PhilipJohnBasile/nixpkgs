@@ -6,20 +6,22 @@
   openssl,
   stdenv,
   curl,
+  versionCheckHook,
+  nix-update-script,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "cargo-tarpaulin";
-  version = "0.34.0";
+  version = "0.37.2";
 
   src = fetchFromGitHub {
     owner = "xd009642";
     repo = "tarpaulin";
-    tag = version;
-    hash = "sha256-G7tzOprDzf+rC7PYPdjlX5VeJwADzpp3JOSK4t55zfA=";
+    tag = finalAttrs.version;
+    hash = "sha256-oD8k/M5PChKzG1ek1uH8UP7PoaL9LYot3HCO4Hmetsw=";
   };
 
-  cargoHash = "sha256-RI+8QQSrxjXsfrqqoJ56UIG4rnhww0gqtjF59j43agU=";
+  cargoHash = "sha256-lZ4wRI1PEcHDxGe8R1mnp/Gk0IDzqXLvosfzkZOIhug=";
 
   nativeBuildInputs = [
     pkg-config
@@ -33,18 +35,24 @@ rustPlatform.buildRustPackage rec {
 
   doCheck = false;
 
-  meta = with lib; {
+  doInstallCheck = true;
+  nativeInstallCheckInputs = [ versionCheckHook ];
+  versionCheckProgramArg = "--version";
+
+  passthru.updateScript = nix-update-script { };
+
+  meta = {
     description = "Code coverage tool for Rust projects";
     mainProgram = "cargo-tarpaulin";
     homepage = "https://github.com/xd009642/tarpaulin";
-    changelog = "https://github.com/xd009642/tarpaulin/blob/${src.rev}/CHANGELOG.md";
-    license = with licenses; [
+    changelog = "https://github.com/xd009642/tarpaulin/blob/${finalAttrs.version}/CHANGELOG.md";
+    license = with lib.licenses; [
       mit # or
       asl20
     ];
-    maintainers = with maintainers; [
-      figsoda
+    maintainers = with lib.maintainers; [
       hugoreeves
+      progrm_jarvis
     ];
   };
-}
+})

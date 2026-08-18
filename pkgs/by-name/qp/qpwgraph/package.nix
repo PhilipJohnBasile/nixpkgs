@@ -11,14 +11,14 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "qpwgraph";
-  version = "0.9.6";
+  version = "1.0.3";
 
   src = fetchFromGitLab {
     domain = "gitlab.freedesktop.org";
     owner = "rncbc";
     repo = "qpwgraph";
     tag = "v${finalAttrs.version}";
-    sha256 = "sha256-zhp6Mkb8iQF8tGXkYu+lgbMUNN/fk/gWBhzeDS4myJ0=";
+    sha256 = "sha256-xzAnZG9tPeVKgOBIX0PdB6bWlK49nMLZWpfDJpnjP4o=";
   };
 
   nativeBuildInputs = [
@@ -51,6 +51,7 @@ stdenv.mkDerivation (finalAttrs: {
       kanashimia
       exi
       Scrumplex
+      matthiasbeyer
     ];
     mainProgram = "qpwgraph";
   };

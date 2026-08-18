@@ -6,6 +6,11 @@
   unzip,
   copyDesktopItems,
   makeDesktopItem,
+  makeBinaryWrapper,
+  libGL,
+  libxxf86vm,
+  libxrender,
+  libx11,
 }:
 
 let
@@ -15,26 +20,32 @@ let
   platform = selectSystem {
     "x86_64-linux" = "linux-x86-64";
     "aarch64-linux" = "linux-aarch64";
-    "x86_64-darwin" = "macosx-x86-64";
     "aarch64-darwin" = "macosx-aarch64";
   };
 
+  runtimeDeps = [
+    libGL
+    libx11
+    libxrender
+    libxxf86vm
+  ];
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "weasis";
-  version = "4.6.3";
+  version = "4.7.2";
 
   # Their build instructions indicate to use the packaging script
   src = fetchzip {
     url = "https://github.com/nroduit/Weasis/releases/download/v${finalAttrs.version}/weasis-native.zip";
-    hash = "sha256-1dvBKxInuk8FpZjo59+LkIuEBTr57wkLaHfvvvT6bOg=";
+    hash = "sha256-PxU6la1zjLvk6ghLGru4hRYD/D+XsfiTjj00i5Gjzb4=";
     stripRoot = false;
   };
 
   nativeBuildInputs = [
     copyDesktopItems
+    makeBinaryWrapper
   ]
-  ++ lib.optional stdenv.isDarwin unzip;
+  ++ lib.optional stdenv.hostPlatform.isDarwin unzip;
 
   desktopItems = [
     (makeDesktopItem {
@@ -68,12 +79,18 @@ stdenv.mkDerivation (finalAttrs: {
   installPhase = ''
     runHook preInstall
   ''
-  + lib.optionalString stdenv.isLinux ''
-    mkdir -p $out/share/{applications,pixmaps}
-    mv weasis-${platform}-jdk${lib.versions.major jdk25.version}-${finalAttrs.version}/Weasis/* $out/
-    mv $out/lib/*.png $out/share/pixmaps/
+  + lib.optionalString stdenv.hostPlatform.isLinux ''
+    mkdir -p $out/{bin,opt/Weasis,share/{applications,icons/hicolor/64x64/apps}}
+
+    mv weasis-${platform}-jdk${lib.versions.major jdk25.version}-${finalAttrs.version}/Weasis/* $out/opt/Weasis
+    mv $out/opt/Weasis/lib/*.png $out/share/icons/hicolor/64x64/apps
+
+    for bin in $out/opt/Weasis/bin/*; do
+      makeWrapper $bin $out/bin/$(basename $bin) \
+        --prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath runtimeDeps}
+    done
   ''
-  + lib.optionalString stdenv.isDarwin ''
+  + lib.optionalString stdenv.hostPlatform.isDarwin ''
     mkdir -p $out/Applications
     mv weasis-${platform}-jdk${lib.versions.major jdk25.version}-${finalAttrs.version}/Weasis.app $out/Applications/
   ''

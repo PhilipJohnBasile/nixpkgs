@@ -20,19 +20,33 @@
   libportal,
   webkitgtk_6_0,
   pipewire,
+  glib-networking,
+  bash,
 }:
 
-python3Packages.buildPythonApplication rec {
+let
+  pythonPackages = python3Packages.overrideScope (
+    self: super: {
+      bibtexparser = self.bibtexparser_2;
+    }
+  );
+in
+pythonPackages.buildPythonApplication rec {
   pname = "alpaca";
-  version = "8.1.1";
+  version = "9.2.5";
   pyproject = false; # Built with meson
 
   src = fetchFromGitHub {
     owner = "Jeffser";
     repo = "Alpaca";
     tag = version;
-    hash = "sha256-zZYz7hJocjhxFqsPgUj2jjNLOsoyHWLsZUBmCJyc87M=";
+    hash = "sha256-tKbxWDTGiblXBr4LOap0ZjojM2ommERRU/i/WpFykdE=";
   };
+
+  postPatch = ''
+    substituteInPlace src/widgets/activities/terminal.py \
+      --replace-fail "['bash', '-c', ';\n'.join(self.prepare_script())]," "['${bash}/bin/bash', '-c', ';\n'.join(self.prepare_script())],"
+  '';
 
   nativeBuildInputs = [
     appstream
@@ -53,10 +67,11 @@ python3Packages.buildPythonApplication rec {
     libportal
     webkitgtk_6_0
     pipewire # pipewiresrc
+    glib-networking
   ];
 
   dependencies =
-    with python3Packages;
+    with pythonPackages;
     [
       pygobject3
       requests
@@ -71,10 +86,12 @@ python3Packages.buildPythonApplication rec {
       markitdown
       gst-python
       opencv4
+      zstandard
+      pythonPackages.ollama
     ]
-    ++ lib.flatten (builtins.attrValues optional-dependencies);
+    ++ lib.concatAttrValues optional-dependencies;
 
-  optional-dependencies = with python3Packages; {
+  optional-dependencies = with pythonPackages; {
     speech-to-text = [
       openai-whisper
       pyaudio
@@ -111,6 +128,7 @@ python3Packages.buildPythonApplication rec {
       }
       ```
       Or using `pkgs.ollama-rocm` for AMD GPUs.
+      For a vendor agnostic solution, use: `pkgs.ollama-vulkan`.
     '';
     homepage = "https://jeffser.com/alpaca";
     license = lib.licenses.gpl3Plus;

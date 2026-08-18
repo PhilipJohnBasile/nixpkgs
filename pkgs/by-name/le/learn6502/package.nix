@@ -14,7 +14,8 @@
   writableTmpDirAsHomeHook,
   gjs,
   libadwaita,
-  nix-update-script,
+  writeShellScript,
+  nix-update,
 }:
 
 let
@@ -23,24 +24,33 @@ in
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "learn6502";
-  version = "0.3.0";
+  version = "0.7.0";
 
   src = fetchFromGitHub {
     owner = "JumpLink";
     repo = "Learn6502";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-Aoj4Z9uraBEH3BW0hrhuV3Hu7cnRxvjbpzm4pUziWS4=";
+    hash = "sha256-wttNOF1ngEK70u+6bBZkFLzvJCQaL9KMfy7EG+mfHIg=";
   };
+
+  patches = [
+    ./get-yarn-from-path.patch
+
+    # Remove after upstream updates to Yarn 4.14
+    # https://github.com/JumpLink/Learn6502/blob/main/package.json#L36
+    ./yarn-4.14-support.patch
+  ];
 
   missingHashes = ./missing-hashes.json;
 
   offlineCache = yarn-berry.fetchYarnBerryDeps {
-    inherit (finalAttrs) src missingHashes;
-    hash = "sha256-0r+SRVx8b238SVm+XM4+uw7Ge3rFtsNwD/+uNfBA7eM=";
+    inherit (finalAttrs) src missingHashes patches;
+    hash = "sha256-fWx1zawU8pJQ3Q7PYWKmJh3Ko7b8wO0m3KS6XCSd9v8=";
   };
 
   nativeBuildInputs = [
     nodejs
+    yarn-berry
     yarn-berry.yarnBerryConfigHook
     meson
     ninja
@@ -70,7 +80,18 @@ stdenv.mkDerivation (finalAttrs: {
     popd
   '';
 
-  passthru.updateScript = nix-update-script { };
+  passthru.updateScript = writeShellScript "update-learn6502" ''
+    ${lib.getExe nix-update} learn6502 || true
+    export HOME=$(mktemp -d)
+    src=$(nix build --no-link --print-out-paths .#learn6502.src)
+    WORKDIR=$(mktemp -d)
+    cp --recursive --no-preserve=mode $src/* $WORKDIR
+    missingHashes=$(nix eval --file . learn6502.missingHashes)
+    pushd $WORKDIR
+    ${lib.getExe yarn-berry.yarn-berry-fetcher} missing-hashes yarn.lock >$missingHashes
+    popd
+    ${lib.getExe nix-update} learn6502 --version skip
+  '';
 
   meta = {
     description = "Modern 6502 Assembly Learning Environment for GNOME";

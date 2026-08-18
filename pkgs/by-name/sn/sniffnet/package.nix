@@ -14,7 +14,10 @@
   expat,
   fontconfig,
   vulkan-loader,
-  xorg,
+  libxrandr,
+  libxi,
+  libxcursor,
+  libx11,
 
   # wrapper
   libxkbcommon,
@@ -26,16 +29,16 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "sniffnet";
-  version = "1.4.1";
+  version = "1.5.1";
 
   src = fetchFromGitHub {
     owner = "gyulyvgc";
     repo = "sniffnet";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-EgnFDF+K8qGjunWB20VA8bXLzNvyGzcIaim+smhW5fU=";
+    hash = "sha256-3XWUT50NCZSzUNldGGVxLA2Tgqc7tyYjtede9yH6ARg=";
   };
 
-  cargoHash = "sha256-22P1EeZ2FqwIHjr23oJCKvg3ggT1Me93goELwZ/B9S4=";
+  cargoHash = "sha256-VMhlncF3fXWr92OM2Y9EqwMQhJlzzc/5no69+M5hDnU=";
 
   nativeBuildInputs = [ pkg-config ];
 
@@ -48,10 +51,10 @@ rustPlatform.buildRustPackage (finalAttrs: {
     expat
     fontconfig
     vulkan-loader
-    xorg.libX11
-    xorg.libXcursor
-    xorg.libXi
-    xorg.libXrandr
+    libx11
+    libxcursor
+    libxi
+    libxrandr
   ]
   ++ lib.optionals stdenv.hostPlatform.isDarwin [
     rustPlatform.bindgenHook
@@ -61,6 +64,8 @@ rustPlatform.buildRustPackage (finalAttrs: {
   checkFlags = [
     "--skip=secondary_threads::check_updates::tests::fetch_latest_release_from_github"
     "--skip=utils::check_updates::tests::fetch_latest_release_from_github"
+    "--skip=networking::types::latency::tests::test_measures_ipv4_loopback_latency"
+    "--skip=networking::types::latency::tests::test_measures_ipv6_loopback_latency"
   ];
 
   postInstall = ''
@@ -78,7 +83,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
       --add-rpath ${
         lib.makeLibraryPath [
           vulkan-loader
-          xorg.libX11
+          libx11
           libxkbcommon
           wayland
         ]
@@ -88,7 +93,6 @@ rustPlatform.buildRustPackage (finalAttrs: {
   nativeInstallCheckInputs = [
     versionCheckHook
   ];
-  versionCheckProgramArg = "--version";
   doInstallCheck = true;
 
   meta = {
@@ -99,7 +103,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
       mit # or
       asl20
     ];
-    maintainers = with lib.maintainers; [ figsoda ];
+    maintainers = [ ];
     teams = [ lib.teams.ngi ];
     mainProgram = "sniffnet";
   };

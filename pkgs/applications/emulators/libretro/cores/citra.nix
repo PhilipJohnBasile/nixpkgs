@@ -4,27 +4,32 @@
   fetchFromGitHub,
   libGL,
   libGLU,
-  libX11,
+  libx11,
   mkLibretroCore,
 }:
 mkLibretroCore {
   core = "citra";
-  version = "0-unstable-2025-08-17";
+  version = "0-unstable-2026-07-21";
 
   src = fetchFromGitHub {
     owner = "libretro";
     repo = "citra";
-    rev = "5263fae3344e5e9af43036e0e38bec2d10fb2407";
-    hash = "sha256-66kbE1taODjxXDhO3uV5R212nikyXfHwCHC/zamZuL0=";
+    rev = "e3e057f166f498ebd9997985ab9179a2cde4fc01";
+    hash = "sha256-9Fxftxbph1RynBa29MSgyqh+kom6cZLaXQ3lta0WReQ=";
     fetchSubmodules = true;
   };
+
+  patches = [
+    # Fix build with GCC 15. See https://github.com/KhronosGroup/glslang/pull/3684.
+    ./patches/citra-gcc-15.patch
+  ];
 
   makefile = "Makefile";
 
   extraBuildInputs = [
     libGL
     libGLU
-    libX11
+    libx11
   ];
 
   extraNativeBuildInputs = [ cmake ];

@@ -12,14 +12,14 @@
 
 buildGoModule (finalAttrs: {
   pname = "symfony-cli";
-  version = "5.14.2";
-  vendorHash = "sha256-SGD8jFRvdJ5GOeQiW3Whe6EnybQ60wOsC/OureOCn7k=";
+  version = "5.19.0";
+  vendorHash = "sha256-/geZVen7WP60LV7+CVv0W8vhiHOoQJmC2WPAXHAc0qY=";
 
   src = fetchFromGitHub {
     owner = "symfony-cli";
     repo = "symfony-cli";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-qgCuerKn7R4bn3YgzpMprIUDfn2SJdIiXC+9avnzDm4=";
+    hash = "sha256-8AMH4w8V232vbCHzVWbbSNljMA808+Vvu5u0YkiZPIA=";
     leaveDotGit = true;
     postFetch = ''
       git --git-dir $out/.git log -1 --pretty=%cd --date=format:'%Y-%m-%dT%H:%M:%SZ' > $out/SOURCE_DATE

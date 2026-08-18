@@ -4,27 +4,27 @@
   fetchFromGitHub,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "fanbox-dl";
-  version = "0.28.0";
+  version = "0.29.1";
 
   src = fetchFromGitHub {
     owner = "hareku";
     repo = "fanbox-dl";
-    rev = "v${version}";
-    hash = "sha256-yrSA9CavQgu89hl+x578geC35KvamfAPOSg33woVI8w=";
+    rev = "v${finalAttrs.version}";
+    hash = "sha256-Cv4m0zVXqsp+OyYh3viXrJpoxOuQdGIWt1MNwxwwt7A=";
   };
 
-  vendorHash = "sha256-uhNitrJeFuFG2XyQrc1JBbExoU6Ln6AFRO2Bgb1+N5M=";
+  vendorHash = "sha256-926PY/byA23wkugkdHLjiGmRgezzEiy4wiGpIXlWsNM=";
 
   # pings websites during testing
   doCheck = false;
 
-  meta = with lib; {
+  meta = {
     description = "Pixiv FANBOX Downloader";
     mainProgram = "fanbox-dl";
     homepage = "https://github.com/hareku/fanbox-dl";
-    license = licenses.mit;
-    maintainers = [ maintainers.moni ];
+    license = lib.licenses.mit;
+    maintainers = [ lib.maintainers.moni ];
   };
-}
+})

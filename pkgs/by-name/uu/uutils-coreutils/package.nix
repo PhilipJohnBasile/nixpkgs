@@ -13,74 +13,75 @@
 
   selinuxSupport ? false,
   libselinux,
-
-  acl,
 }:
 
 assert selinuxSupport -> lib.meta.availableOn stdenv.hostPlatform libselinux;
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "uutils-coreutils";
-  version = "0.2.2";
+  version = "0.10.0";
+  __structuredAttrs = true;
 
   src = fetchFromGitHub {
     owner = "uutils";
     repo = "coreutils";
     tag = finalAttrs.version;
-    hash = "sha256-VcwdCi40Tm8J3t0qFSFGvRwW6B5cCDj1wm+H3i20axo=";
+    hash = "sha256-bqMrYVFa21Tu3t2Y5na9gFYr6AkklSnszbX8vKxI4gg=";
   };
+
+  # error: linker `aarch64-linux-gnu-gcc` not found
+  postPatch = ''
+    rm .cargo/config.toml
+  '';
 
   cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit (finalAttrs) src;
-    name = "uutils-coreutils-${finalAttrs.version}";
-    hash = "sha256-/QNOrfqdMviOVP1Fzorc6RAsgLDSKtg/MXfXJEzxwMc=";
+    inherit (finalAttrs) pname src version;
+    hash = "sha256-7ROe9xrFcaXWYxoe9lfAfZxDxPcrETU8Mcj2HsdoqpA=";
   };
 
-  patches = [
-    ./selinux_no_auto_detect.diff
+  buildInputs = lib.optionals selinuxSupport [
+    libselinux
   ];
 
-  buildInputs =
-    lib.optionals (lib.meta.availableOn stdenv.hostPlatform acl) [
-      acl
-    ]
-    ++ lib.optionals selinuxSupport [
-      libselinux
-    ];
-
   nativeBuildInputs = [
+    cargo
     rustPlatform.bindgenHook
     rustPlatform.cargoSetupHook
     python3Packages.sphinx
   ];
 
   makeFlags = [
-    "CARGO=${lib.getExe cargo}"
     "PREFIX=${placeholder "out"}"
     "PROFILE=release"
     "SELINUX_ENABLED=${if selinuxSupport then "1" else "0"}"
     "INSTALLDIR_MAN=${placeholder "out"}/share/man/man1"
-    # Explicitly enable acl, and if requested selinux.
     # We cannot rely on SELINUX_ENABLED here since our explicit assignment
     # overrides its effect in the makefile.
     "BUILD_SPEC_FEATURE=${
       lib.concatStringsSep "," (
-        # We can always enable acl, on non-Linux, libc provides the headers,
-        # only in Linux we need to add the acl lib to buildInputs.
-        [
-          "feat_acl"
-        ]
-        ++ (lib.optionals selinuxSupport [
+        lib.optionals selinuxSupport [
           "feat_selinux"
-        ])
+        ]
       )
     }"
+    "SKIP_UTILS=${lib.optionalString stdenv.hostPlatform.isStatic "stdbuf"}"
   ]
-  ++ lib.optionals (prefix != null) [ "PROG_PREFIX=${prefix}" ]
-  ++ lib.optionals buildMulticallBinary [ "MULTICALL=y" ];
+  ++ lib.optionals (prefix != null) [
+    "PROG_PREFIX=${prefix}"
+  ]
+  ++ lib.optionals buildMulticallBinary [
+    "MULTICALL=y"
+  ];
 
-  env = lib.optionalAttrs selinuxSupport {
-    SELINUX_INCLUDE_DIR = ''${libselinux.dev}/include'';
+  env = {
+    CARGO_BUILD_TARGET = stdenv.hostPlatform.rust.rustcTargetSpec;
+    # Upstream uses hardlinks for the multicall aliases by default, but NAR
+    # serialization does not preserve hardlinks, exploding the closure to
+    # ~100 copies of the 14 MiB binary.
+    LN = "ln -sf";
+  }
+  // lib.optionalAttrs selinuxSupport {
+    SELINUX_INCLUDE_DIR = "${lib.getInclude libselinux}/include";
     SELINUX_LIB_DIR = lib.makeLibraryPath [
       libselinux
     ];
@@ -98,7 +99,6 @@ stdenv.mkDerivation (finalAttrs: {
       prefix' = lib.optionalString (prefix != null) prefix;
     in
     "${placeholder "out"}/bin/${prefix'}ls";
-  versionCheckProgramArg = "--version";
   doInstallCheck = true;
 
   passthru = {
@@ -114,6 +114,7 @@ stdenv.mkDerivation (finalAttrs: {
     homepage = "https://github.com/uutils/coreutils";
     changelog = "https://github.com/uutils/coreutils/releases/tag/${finalAttrs.version}";
     maintainers = with lib.maintainers; [
+      GaetanLepage
       siraben
       matthiasbeyer
     ];

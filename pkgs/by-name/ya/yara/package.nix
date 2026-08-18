@@ -19,13 +19,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "yara";
-  version = "4.5.4";
+  version = "4.5.7";
 
   src = fetchFromGitHub {
     owner = "VirusTotal";
     repo = "yara";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-vSwjP0wbC65jEOxY9zrHAV1gEhcZ96emqvkuUw20Twc=";
+    hash = "sha256-4PK/GU02mcgMSkFllqGZ7zmswQb8b6bkfEWLoCGHo3E=";
   };
 
   nativeBuildInputs = [
@@ -63,7 +63,7 @@ stdenv.mkDerivation (finalAttrs: {
     description = "Tool to perform pattern matching for malware-related tasks";
     homepage = "http://Virustotal.github.io/yara/";
     changelog = "https://github.com/VirusTotal/yara/releases/tag/v${finalAttrs.version}";
-    license = lib.licenses.asl20;
+    license = lib.licenses.bsd3;
     maintainers = with lib.maintainers; [ fab ];
     mainProgram = "yara";
     platforms = lib.platforms.all;

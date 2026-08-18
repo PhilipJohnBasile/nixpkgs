@@ -3,22 +3,50 @@
   stdenv,
   fetchFromGitHub,
   imagemagick,
-  source-code-pro,
   python3Packages,
   nix-update-script,
   nixos-icons,
+  buildPackages,
   customLogo ? "${nixos-icons}/share/icons/hicolor/256x256/apps/nix-snowflake.png",
 }:
+
+let
+  stdenvOpts = {
+    targetPlatform.system = "aarch64-none-elf";
+    targetPlatform.rust.rustcTarget = "${stdenv.hostPlatform.parsed.cpu.name}-unknown-none-softfloat";
+    targetPlatform.rust.rustcTargetSpec = "${stdenv.hostPlatform.parsed.cpu.name}-unknown-none-softfloat";
+  };
+  rust = buildPackages.rust.override {
+    stdenv = lib.recursiveUpdate buildPackages.stdenv stdenvOpts;
+  };
+  rustPackages = rust.packages.stable.overrideScope (
+    f: p: {
+      rustc-unwrapped = p.rustc-unwrapped.override {
+        stdenv = lib.recursiveUpdate p.rustc-unwrapped.stdenv stdenvOpts;
+      };
+    }
+  );
+  rustPlatform = buildPackages.makeRustPlatform rustPackages;
+
+in
 stdenv.mkDerivation (finalAttrs: {
   pname = "m1n1";
-  version = "1.5.0";
+  version = "1.6.1";
 
   src = fetchFromGitHub {
     owner = "AsahiLinux";
     repo = "m1n1";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-J1PZVaEdI6gx/qzsoVW1ehRQ/ZDKzdC1NgIGgBqxQ+0=";
+    hash = "sha256-4Wps/hNIBH6qWr2sX683WyLIPQJmih4ADwQKqqjitDk=";
   };
+
+  cargoDeps = rustPlatform.fetchCargoVendor {
+    inherit (finalAttrs) pname version;
+    src = "${finalAttrs.src}/rust";
+    sourceRoot = "rust";
+    hash = "sha256-/2JQ31pMHbNjZsIu2RLCWzNul/qzL1O2+XB3qdOEb2U=";
+  };
+  cargoRoot = "rust";
 
   postPatch = lib.optionalString (customLogo != null) ''
     magick ${customLogo} -resize 128x128 data/custom_128.png
@@ -27,21 +55,17 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [
     imagemagick
+    rustPackages.rustc
+    rustPackages.cargo
+    rustPlatform.cargoSetupHook
   ];
-
-  postConfigure = ''
-    patchShebangs --build font/makefont.sh
-    FONT_PATH=${source-code-pro}/share/fonts/opentype/SourceCodePro-Bold.otf
-    rm font/{SourceCodePro-Bold.ttf,font.bin,font_retina.bin}
-    ./font/makefont.sh 8 16 12 $FONT_PATH font/font.bin
-    ./font/makefont.sh 16 32 25 $FONT_PATH font/font_retina.bin
-  '';
 
   makeFlags = [
     "ARCH=${stdenv.cc.targetPrefix}"
     "RELEASE=1"
-    (lib.optionalString (customLogo != null) "LOGO=custom")
-  ];
+    "CHAINLOADING=1"
+  ]
+  ++ lib.optional (customLogo != null) "LOGO=custom";
 
   enableParallelBuilding = true;
 
@@ -77,6 +101,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   passthru = {
     updateScript = nix-update-script { };
+    inherit rustPlatform rustPackages;
   };
 
   meta = {
@@ -123,7 +148,7 @@ stdenv.mkDerivation (finalAttrs: {
       bsd3
       asl20
     ];
-    maintainers = with lib.maintainers; [ normalcea ];
-    platforms = lib.platforms.aarch64;
+    maintainers = with lib.maintainers; [ sempiternal-aurora ];
+    platforms = [ "aarch64-linux" ];
   };
 })

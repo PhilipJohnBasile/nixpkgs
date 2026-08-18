@@ -17,7 +17,7 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "libxslt";
-  version = "1.1.43";
+  version = "1.1.45";
 
   outputs = [
     "bin"
@@ -31,7 +31,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   src = fetchurl {
     url = "mirror://gnome/sources/libxslt/${lib.versions.majorMinor finalAttrs.version}/libxslt-${finalAttrs.version}.tar.xz";
-    hash = "sha256-Wj1rODylr8I1sXERjpD1/2qifp/qMwMGUjGm1APwGDo=";
+    hash = "sha256-ms/mhBnE0GpFxVAyGzISdi2S9BRlBiyk6hnmMu5dIW4=";
   };
 
   patches = [
@@ -39,16 +39,6 @@ stdenv.mkDerivation (finalAttrs: {
     # https://gitlab.gnome.org/GNOME/libxslt/-/issues/144
     # Source: https://gitlab.gnome.org/GNOME/libxslt/-/merge_requests/77
     ./77-Use-a-dedicated-node-type-to-maintain-the-list-of-cached-rv-ts.patch
-
-    # Fix type confusion in xmlNode.psvi between stylesheet and source nodes
-    # https://gitlab.gnome.org/GNOME/libxslt/-/issues/139
-    # Fix heap-use-after-free in xmlFreeID caused by `atype` corruption
-    # https://gitlab.gnome.org/GNOME/libxslt/-/issues/140
-    #
-    # Depends on unmerged libxml2 patch that breaks ABI.
-    #
-    # Source: https://github.com/chromium/chromium/blob/4fb4ae8ce3daa399c3d8ca67f2dfb9deffcc7007/third_party/libxslt/chromium/new-unified-atype-extra.patch
-    ./new-unified-atype-extra.patch
   ];
 
   strictDeps = true;
@@ -88,6 +78,9 @@ stdenv.mkDerivation (finalAttrs: {
   postFixup = ''
     moveToOutput bin/xslt-config "$dev"
     moveToOutput lib/xsltConf.sh "$dev"
+
+    substituteInPlace "$dev/lib/cmake/libxslt/libxslt-config.cmake" \
+      --replace-fail '"''${PACKAGE_PREFIX_DIR}/lib"' "\"$out/lib\""
   ''
   + lib.optionalString pythonSupport ''
     mkdir -p $py/nix-support
@@ -104,12 +97,13 @@ stdenv.mkDerivation (finalAttrs: {
     };
   };
 
-  meta = with lib; {
+  meta = {
     homepage = "https://gitlab.gnome.org/GNOME/libxslt";
     description = "C library and tools to do XSL transformations";
-    license = licenses.mit;
-    platforms = platforms.all;
-    maintainers = with maintainers; [ jtojnar ];
+    license = lib.licenses.mit;
+    platforms = lib.platforms.all;
+    maintainers = with lib.maintainers; [ jtojnar ];
     broken = pythonSupport && !libxml2.pythonSupport; # see #73102 for why this is not an assert
+    identifiers.cpeParts = lib.meta.cpeFullVersionWithVendor "xmlsoft" finalAttrs.version;
   };
 })

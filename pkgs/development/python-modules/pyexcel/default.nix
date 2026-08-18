@@ -11,12 +11,12 @@
 
 buildPythonPackage rec {
   pname = "pyexcel";
-  version = "0.7.3";
+  version = "0.7.6";
   pyproject = true;
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-V7PD+1XdCaYsu/Kunx54qhG2J8K/xgcv8tlYfAIrBtQ=";
+    hash = "sha256-SJSD2MdnWk0E0KVaG13Qkldx4mYPpoEFyjQuSS9FnRs=";
   };
 
   build-system = [ setuptools ];

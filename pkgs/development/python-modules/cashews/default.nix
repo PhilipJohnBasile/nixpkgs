@@ -19,14 +19,14 @@
 
 buildPythonPackage rec {
   pname = "cashews";
-  version = "7.4.3";
+  version = "7.5.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "Krukov";
     repo = "cashews";
     tag = version;
-    hash = "sha256-L6EpSZ6ssRV9fQLuJ6SxKB8QS9fo4qAQ3YKcc1u7sHY=";
+    hash = "sha256-GQObsWTCAKuYCyHZVd1wDzhvyYK5Xw1z1QazLuAP3Jg=";
   };
 
   build-system = [ setuptools ];

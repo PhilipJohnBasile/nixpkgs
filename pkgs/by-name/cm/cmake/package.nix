@@ -50,11 +50,11 @@ stdenv.mkDerivation (finalAttrs: {
     + lib.optionalString isMinimalBuild "-minimal"
     + lib.optionalString cursesUI "-cursesUI"
     + lib.optionalString qt5UI "-qt5UI";
-  version = "4.1.1";
+  version = "4.3.4";
 
   src = fetchurl {
     url = "https://cmake.org/files/v${lib.versions.majorMinor finalAttrs.version}/cmake-${finalAttrs.version}.tar.gz";
-    hash = "sha256-sp9vGXM6oiS3djUHoQikJ+1Ixojh+vIrKcROHDBUkoI=";
+    hash = "sha256-/e/4l7nrSddkU58rHtxut+FEDfMlZ4qXwZeEmekxrdo=";
   };
 
   patches = [
@@ -80,9 +80,6 @@ stdenv.mkDerivation (finalAttrs: {
     })
   ]
   ++ [
-    # Backport of https://gitlab.kitware.com/cmake/cmake/-/merge_requests/11134
-    ./fix-curl-8.16.patch
-
     # Remove references to non‐Nix search paths.
     ./remove-impure-search-paths.patch
   ];
@@ -127,6 +124,10 @@ stdenv.mkDerivation (finalAttrs: {
     ++ lib.optional cursesUI ncurses
     ++ lib.optional qt5UI qtbase;
 
+  # bootstrap is not autoconf and rejects --enable-static/--disable-shared
+  # FIXME: rebuild avoidance, drop optionalDrvAttr in staging
+  dontAddStaticConfigureFlags = lib.optionalDrvAttr stdenv.hostPlatform.isStatic true;
+
   preConfigure = ''
     substituteInPlace Modules/Platform/UnixPaths.cmake \
       --subst-var-by libc_bin ${lib.getBin stdenv.cc.libc} \
@@ -134,6 +135,10 @@ stdenv.mkDerivation (finalAttrs: {
       --subst-var-by libc_lib ${lib.getLib stdenv.cc.libc}
     # CC_FOR_BUILD and CXX_FOR_BUILD are used to bootstrap cmake
     configureFlags="--parallel=''${NIX_BUILD_CORES:-1} CC=$CC_FOR_BUILD CXX=$CXX_FOR_BUILD $configureFlags $cmakeFlags"
+  ''
+  + lib.optionalString (stdenv.hostPlatform.isStatic && useSharedLibraries) ''
+    # FindLibArchive ignores libarchive.pc's Libs.private
+    export NIX_LDFLAGS+=" $($PKG_CONFIG --static --libs-only-l libarchive)"
   '';
 
   # The configuration script is not autoconf-based, although being similar;
@@ -178,6 +183,11 @@ stdenv.mkDerivation (finalAttrs: {
 
     (lib.cmakeBool "CMAKE_USE_OPENSSL" useOpenSSL)
     (lib.cmakeBool "BUILD_CursesDialog" cursesUI)
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isStatic [
+    # kwsys's DynamicLoader test is inimical to -static
+    # doCheck is off anyway so just skip building tests
+    (lib.cmakeBool "BUILD_TESTING" false)
   ];
 
   # make install attempts to use the just-built cmake
@@ -208,10 +218,7 @@ stdenv.mkDerivation (finalAttrs: {
     '';
     changelog = "https://cmake.org/cmake/help/v${lib.versions.majorMinor finalAttrs.version}/release/${lib.versions.majorMinor finalAttrs.version}.html";
     license = lib.licenses.bsd3;
-    maintainers = with lib.maintainers; [
-      ttuegel
-      lnl7
-    ];
+    maintainers = [ ];
     platforms = lib.platforms.all;
     mainProgram = "cmake";
     broken = (qt5UI && stdenv.hostPlatform.isDarwin);

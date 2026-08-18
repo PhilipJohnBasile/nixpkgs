@@ -2,50 +2,57 @@
   stdenv,
   lib,
   fetchFromGitHub,
-  fetchpatch,
   cmake,
-  enableStatic ? stdenv.hostPlatform.isStatic,
+  ninja,
+  ctestCheckHook,
+  testers,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "double-conversion";
-  version = "3.3.1";
+  version = "3.4.0";
 
   src = fetchFromGitHub {
     owner = "google";
     repo = "double-conversion";
-    rev = "v${version}";
-    sha256 = "sha256-M80H+azCzQYa4/gBLWv5GNNhEuHsH7LbJ/ajwmACnrM=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-gxaPqQ51RyXZaTHkvh4RBpedPopcRiuWDoT+PPbI1uw=";
   };
 
-  patches = [
-    # Fix the build with CMake 4.
-    (fetchpatch {
-      name = "double-conversion-fix-cmake-4-1.patch";
-      url = "https://github.com/google/double-conversion/commit/101e1ba89dc41ceb75090831da97c43a76cd2906.patch";
-      hash = "sha256-VRmuNXdzt/I+gWbz5mwWkx5IGn8Vsl9WkdwRsuwZdkU=";
-    })
-    (fetchpatch {
-      name = "double-conversion-fix-cmake-4-2.patch";
-      url = "https://github.com/google/double-conversion/commit/0604b4c18815aadcf7f4b78dfa6bfcb91a634ed7.patch";
-      hash = "sha256-cJBp1ou1O/bMQ/7kvcX52dWbUdhmPfQ9aWmEhQdyhis=";
-    })
+  outputs = [
+    "out"
+    "dev"
   ];
 
-  nativeBuildInputs = [ cmake ];
+  nativeBuildInputs = [
+    cmake
+    ninja
+    ctestCheckHook
+  ];
 
-  cmakeFlags = lib.optional (!enableStatic) "-DBUILD_SHARED_LIBS=ON";
+  doCheck = true;
+
+  cmakeFlags = [
+    (lib.cmakeBool "BUILD_TESTING" true)
+    (lib.cmakeBool "BUILD_SHARED_LIBS" stdenv.hostPlatform.hasSharedLibraries)
+  ];
 
   # Case sensitivity issue
   preConfigure = lib.optionalString stdenv.hostPlatform.isDarwin ''
     rm BUILD
   '';
 
-  meta = with lib; {
+  passthru = {
+    tests.pkg-config = testers.testMetaPkgConfig finalAttrs.finalPackage;
+  };
+
+  meta = {
+    pkgConfigModules = [ "double-conversion" ];
+    changelog = "https://github.com/google/double-conversion/blob/${finalAttrs.src.tag}/Changelog";
     description = "Binary-decimal and decimal-binary routines for IEEE doubles";
     homepage = "https://github.com/google/double-conversion";
-    license = licenses.bsd3;
-    platforms = platforms.unix ++ platforms.windows;
-    maintainers = [ ];
+    license = lib.licenses.bsd3;
+    platforms = lib.platforms.unix ++ lib.platforms.windows;
+    maintainers = with lib.maintainers; [ fzakaria ];
   };
-}
+})

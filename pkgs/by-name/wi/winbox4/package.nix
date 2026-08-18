@@ -5,7 +5,7 @@
 }:
 let
   pname = "winbox";
-  version = "4.0beta33";
+  version = "4.3";
 
   metaCommon = {
     description = "Graphical configuration utility for RouterOS-based devices";
@@ -15,21 +15,21 @@ let
     license = lib.licenses.unfree;
     mainProgram = "WinBox";
     maintainers = with lib.maintainers; [
-      Scrumplex
       yrd
       savalet
+      martinkontsek
     ];
   };
   x86_64-zip = callPackage ./build-from-zip.nix {
     inherit pname version metaCommon;
 
-    hash = "sha256-jGYqzmqH/0cbYoI5rGqSALzU8/dtDIKXCoFn9adDBZY=";
+    hash = "sha256-VzYArCTfOKegbqQxixJ1QkfuxLVMbJCwpXEA1nZ4ekw=";
   };
 
   x86_64-dmg = callPackage ./build-from-dmg.nix {
     inherit pname version metaCommon;
 
-    hash = "sha256-INMSKYGpXMBIF11Xaz+MLmCk78+rn7jf5BaFsErIG1E=";
+    hash = "sha256-VoHQPjITOFiz3FQceMG644yzNVtf2YMmrHJeC9i6tXA=";
   };
 in
 (if stdenvNoCC.hostPlatform.isDarwin then x86_64-dmg else x86_64-zip).overrideAttrs (oldAttrs: {

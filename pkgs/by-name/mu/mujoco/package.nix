@@ -3,8 +3,10 @@
   stdenv,
   fetchFromGitHub,
   cmake,
+  gitMinimal,
   fetchFromGitLab,
   glfw,
+  libGL,
   glm,
   spdlog,
   cereal,
@@ -18,14 +20,14 @@ let
     abseil-cpp = fetchFromGitHub {
       owner = "abseil";
       repo = "abseil-cpp";
-      rev = "d38452e1ee03523a208362186fd42248ff2609f6";
-      hash = "sha256-SCQDORhmJmTb0CYm15zjEa7dkwc+lpW2s1d4DsMRovI=";
+      rev = "5650e9cf76d3be4318d5fa3af38ee483ddfd5e4a";
+      hash = "sha256-O9ClnGm4WSTX3g1Q2VYTMhUtGG52XBwxzgHtWW9WSG0=";
     };
     benchmark = fetchFromGitHub {
       owner = "google";
       repo = "benchmark";
-      rev = "5f7d66929fb66869d96dfcbacf0d8a586b33766d";
-      hash = "sha256-G9jMWq8BxKvRGP4D2/tcogdLwmek4XGYESqepnZIlCw=";
+      rev = "834a61fc65e8b7885fcf177f1230ae4b897118fa";
+      hash = "sha256-V5pVCG5QdFlgBIVKMv4jyTTB22BWfTHD3HolVPDFpgQ=";
     };
     ccd = fetchFromGitHub {
       owner = "danfis";
@@ -36,8 +38,8 @@ let
     eigen3 = fetchFromGitLab {
       owner = "libeigen";
       repo = "eigen";
-      rev = "4033cfcc1dd45b3cdf7285afd93556f2cfbe9425";
-      hash = "sha256-E1jfbHldIQOwonHvMn0feQiLI9zq3zB8Q9a0ufw1HuY=";
+      rev = "ea13a98decd497a8c5588fb5de71b57bcf10d864";
+      hash = "sha256-v9bNWc9yfK3vG8hYhQ7vkc7DHaoPF6RAKfX9kC0Gw8c=";
     };
     googletest = fetchFromGitHub {
       owner = "google";
@@ -51,11 +53,17 @@ let
       rev = "17d08dd26cac4d63f43af217ebd70318bfb8189c";
       hash = "sha256-vnw52G0lY68471dzH7NXc++bTbLRsITSxGYXOTicA5w=";
     };
+    miniz = fetchFromGitHub {
+      owner = "richgel999";
+      repo = "miniz";
+      rev = "d10b03cc73475af673df40f06e5cefd1d5f940d9";
+      hash = "sha256-hRB/0TVVQjr4VwjozfRnYKUJfeqO+1PNfdvP/rrOCR4=";
+    };
     qhull = fetchFromGitHub {
       owner = "qhull";
       repo = "qhull";
-      rev = "62ccc56af071eaa478bef6ed41fd7a55d3bb2d80";
-      hash = "sha256-kIxHtE0L/axV9WKnQzyFN0mxoIFAI33Z+MP0P/MtQPw=";
+      rev = "d1c2fc0caa5f644f3a0f220290d4a868c68ed4f6";
+      hash = "sha256-enwzl4td3lgYwQ4PXfcONKQrxChnJcvf8ehnJ6vf0yg=";
     };
     tinyobjloader = fetchFromGitHub {
       owner = "tinyobjloader";
@@ -75,18 +83,15 @@ let
       rev = "f03a1b3ec29b1d7d865691ca8aea4f1eb2c2873d";
       hash = "sha256-90ei0lpJA8XuVGI0rGb3md0Qtq8/bdkU7dUCHpp88Bw=";
     };
-    trianglemeshdistance = fetchFromGitHub {
-      owner = "InteractiveComputerGraphics";
-      repo = "TriangleMeshDistance";
-      rev = "2cb643de1436e1ba8e2be49b07ec5491ac604457";
-      hash = "sha256-qG/8QKpOnUpUQJ1nLj+DFoLnUr+9oYkJPqUhwEQD2pc=";
-    };
   };
 
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "mujoco";
-  version = "3.3.7";
+  version = "3.11.0";
+
+  __structuredAttrs = true;
+  strictDeps = true;
 
   # Bumping version? Make sure to look though the MuJoCo's commit
   # history for bumped dependency pins!
@@ -94,12 +99,18 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "google-deepmind";
     repo = "mujoco";
     tag = finalAttrs.version;
-    hash = "sha256-qetgQDgXtaDAuAo/PakZJEsevnvZFJB5EYXPMWeaEqo=";
+    hash = "sha256-8CJD8jQ51fe0r36n9zFzuXCNLlqyvG/ZY/HA9hK1/PY=";
   };
 
-  patches = [ ./mujoco-system-deps-dont-fetch.patch ];
+  patches = [
+    ./mujoco-system-deps-dont-fetch.patch
+  ];
 
-  nativeBuildInputs = [ cmake ];
+  nativeBuildInputs = [
+    cmake
+    # git is needed to apply patches to ccd-src and qhull-src (see below)
+    gitMinimal
+  ];
 
   buildInputs = [
     glm
@@ -110,6 +121,11 @@ stdenv.mkDerivation (finalAttrs: {
     glfw
   ];
 
+  propagatedBuildInputs = [
+    # consuming MuJoCo through cmake find_package requires libGL
+    libGL
+  ];
+
   cmakeFlags = [
     (lib.cmakeBool "MUJOCO_SIMULATE_USE_SYSTEM_GLFW" true)
     (lib.cmakeBool "MUJOCO_SAMPLES_USE_SYSTEM_GLFW" true)
@@ -118,19 +134,35 @@ stdenv.mkDerivation (finalAttrs: {
   # Move things into place so that cmake doesn't try downloading dependencies.
   preConfigure = ''
     mkdir -p build/_deps
-    ln -s ${pin.abseil-cpp} build/_deps/abseil-cpp-src
     ln -s ${pin.benchmark} build/_deps/benchmark-src
-    ln -s ${pin.ccd} build/_deps/ccd-src
+  ''
+  # mujoco applies a patch on top of abseil-cpp's sources
+  # https://github.com/google-deepmind/mujoco/blob/3.10.0/cmake/MujocoDependencies.cmake#L299-L300
+  + ''
+    cp -r ${pin.abseil-cpp} build/_deps/abseil-cpp-src
+    chmod -R +w build/_deps/abseil-cpp-src
+  ''
+  # cccd is patched by mujoco's cmake and thus needs to be writable
+  # https://github.com/google-deepmind/mujoco/blob/3.4.0/cmake/MujocoDependencies.cmake#L232-L235
+  + ''
+    cp -r ${pin.ccd} build/_deps/ccd-src
+    chmod -R +w build/_deps/ccd-src
+  ''
+  + ''
     ln -s ${pin.eigen3} build/_deps/eigen3-src
     ln -s ${pin.googletest} build/_deps/googletest-src
     ln -s ${pin.lodepng} build/_deps/lodepng-src
-    ln -s ${pin.qhull} build/_deps/qhull-src
+    ln -s ${pin.miniz} build/_deps/miniz-src
+  ''
+  # qhull is patched by mujoco's cmake and thus needs to be writable
+  # https://github.com/google-deepmind/mujoco/blob/3.4.0/cmake/MujocoDependencies.cmake#L132-L135
+  + ''
+    cp -r ${pin.qhull} build/_deps/qhull-src
+    chmod -R +w build/_deps/qhull-src
+  ''
+  + ''
     ln -s ${pin.tinyobjloader} build/_deps/tinyobjloader-src
     ln -s ${pin.tinyxml2} build/_deps/tinyxml2-src
-  ''
-  # Mujoco's cmake apply a patch on the trianglemeshdistance source code. Requires write permission.
-  + ''
-    cp -r ${pin.trianglemeshdistance} build/_deps/trianglemeshdistance-src
     ln -s ${pin.marchingcubecpp} build/_deps/marchingcubecpp-src
   '';
 

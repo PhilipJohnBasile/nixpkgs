@@ -1,19 +1,25 @@
 {
   lib,
   stdenv,
-  fetchFromGitLab,
+  fetchurl,
+  makeSetupHook,
   meson,
   ninja,
   pkg-config,
   rustc,
   cargo,
+  python3,
   rustPlatform,
   vala,
   gi-docgen,
+  glib,
+  gobject-introspection,
+  glycin-loaders,
+  glycin-thumbnailer,
+  libglycin-gtk4,
+  fontconfig,
   libseccomp,
   lcms2,
-  gtk4,
-  gobject-introspection,
   gnome,
   replaceVars,
   bubblewrap,
@@ -26,14 +32,24 @@
 }:
 stdenv.mkDerivation (finalAttrs: {
   pname = "libglycin";
-  version = "1.2.3";
+  version = "2.1.5";
 
-  src = fetchFromGitLab {
-    domain = "gitlab.gnome.org";
-    owner = "GNOME";
-    repo = "glycin";
-    tag = finalAttrs.version;
-    hash = "sha256-O7Z7kzC0BU7FAF1UZC6LbXVIXPDertsAUNYwHAjkzPI=";
+  outputs = [
+    "out"
+    "dev"
+    "devdoc"
+  ];
+
+  setupHook = ./path-hook.sh;
+
+  src = fetchurl {
+    url = "mirror://gnome/sources/glycin/${lib.versions.majorMinor finalAttrs.version}/glycin-${finalAttrs.version}.tar.xz";
+    hash = "sha256-bAl1fukGMwpgtnBXU6pWvKAHrSGblebjU3UQ1BvDQcg=";
+  };
+
+  cargoDeps = rustPlatform.fetchCargoVendor {
+    inherit (finalAttrs) pname version src;
+    hash = "sha256-6vCucnT3xPWSm3TSi3WzgJdiiBFHvGMpab4d53OfThg=";
   };
 
   nativeBuildInputs = [
@@ -42,41 +58,56 @@ stdenv.mkDerivation (finalAttrs: {
     pkg-config
     rustc
     cargo
+    python3
     rustPlatform.cargoSetupHook
+    finalAttrs.passthru.patchVendorHook
   ]
   ++ lib.optionals withIntrospection [
     vala
     gi-docgen
+    gobject-introspection
   ];
 
-  cargoDeps = rustPlatform.fetchCargoVendor {
-    inherit (finalAttrs) pname version src;
-    hash = "sha256-g2tsQ6q+sUxn3itu3IgZ5EGtDorPzhaO5B1hlEW5xzs=";
-  };
-
   buildInputs = [
+    fontconfig
     libseccomp
     lcms2
-    gtk4
-  ]
-  ++ lib.optionals withIntrospection [ gobject-introspection ];
+  ];
 
   propagatedBuildInputs = [
+    glib
+    # TODO: these should not be required by .pc file
+    fontconfig
     libseccomp
     lcms2
   ];
 
   mesonFlags = [
     (lib.mesonBool "glycin-loaders" false)
+    (lib.mesonBool "glycin-thumbnailer" false)
     (lib.mesonBool "libglycin" true)
+    (lib.mesonBool "libglycin-gtk4" false)
     (lib.mesonBool "introspection" withIntrospection)
     (lib.mesonBool "vapi" withIntrospection)
     (lib.mesonBool "capi_docs" withIntrospection)
   ];
 
   postPatch = ''
-    patch -p2 < ${finalAttrs.passthru.glycinPathsPatch}
+    patchShebangs \
+      build-aux/crates-version.py
+    substituteInPlace libglycin/meson.build --replace-fail \
+      "cargo_output = cargo_target_dir / rust_target" \
+      "cargo_output = cargo_target_dir / '${stdenv.hostPlatform.rust.cargoShortTarget}' / rust_target"
   '';
+
+  postFixup = ''
+    # Cannot be in postInstall, otherwise _multioutDocs hook in preFixup will move right back.
+    moveToOutput "share/doc" "$devdoc"
+  '';
+
+  env.CARGO_BUILD_TARGET = stdenv.hostPlatform.rust.rustcTargetSpec;
+
+  strictDeps = true;
 
   passthru = {
     updateScript =
@@ -107,8 +138,25 @@ stdenv.mkDerivation (finalAttrs: {
         updateLockfile
       ];
 
-    glycinPathsPatch = replaceVars ./fix-glycin-paths.patch {
-      bwrap = "${bubblewrap}/bin/bwrap";
+    patchVendorHook =
+      makeSetupHook
+        {
+          name = "glycinPatchVendorHook";
+        }
+        (
+          replaceVars ./patch-vendor-hook.sh {
+            bwrap = "${bubblewrap}/bin/bwrap";
+            jq = "${buildPackages.jq}/bin/jq";
+            sponge = "${buildPackages.moreutils}/bin/sponge";
+          }
+        );
+
+    tests = {
+      inherit
+        glycin-loaders
+        glycin-thumbnailer
+        libglycin-gtk4
+        ;
     };
   };
 
@@ -116,16 +164,17 @@ stdenv.mkDerivation (finalAttrs: {
     description = "Sandboxed and extendable image loading library";
     homepage = "https://gitlab.gnome.org/GNOME/glycin";
     changelog = "https://gitlab.gnome.org/GNOME/glycin/-/tags/${finalAttrs.version}";
-    license = with lib.licenses; [
-      mpl20 # or
-      lgpl21Plus
-    ];
-    maintainers = with lib.maintainers; [ normalcea ];
+    license =
+      with lib.licenses;
+      OR [
+        mpl20
+        lgpl21Plus
+      ];
+    maintainers = [ ];
     teams = [ lib.teams.gnome ];
     platforms = lib.platforms.linux;
     pkgConfigModules = [
-      "glycin-1"
-      "glycin-gtk4-1"
+      "glycin-2"
     ];
   };
 })

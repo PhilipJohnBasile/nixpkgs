@@ -7,13 +7,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "chsrc";
-  version = "0.2.2";
+  version = "0.2.6";
 
   src = fetchFromGitHub {
     owner = "RubyMetric";
     repo = "chsrc";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-W59c78U7fZ4nlSm4Yn7sySYdMqS848aGAzqHh+BVEpA=";
+    hash = "sha256-7vG/E1AtT/SqYI5VvE4bO3KWB867z5BHpo3vCL1M4jI=";
   };
 
   nativeBuildInputs = [ texinfo ];

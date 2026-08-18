@@ -2,21 +2,24 @@
   lib,
   stdenv,
   fetchurl,
+  unzip,
 }:
 
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "shaarli";
-  version = "0.15.0";
+  version = "0.16.5";
 
   src = fetchurl {
-    url = "https://github.com/shaarli/Shaarli/releases/download/v${version}/shaarli-v${version}-full.tar.gz";
-    sha256 = "sha256-+UEtbEYHQrLtClk6VemMhSNx0OPh/JDVlDIfeIzdmRI=";
+    url = "https://github.com/shaarli/Shaarli/releases/download/v${finalAttrs.version}/shaarli-v${finalAttrs.version}-full.zip";
+    sha256 = "sha256-eU4xt3y/d5VzlIbOWKHsftlhjn33qrWOj43p2xgg7Cc=";
   };
 
   outputs = [
     "out"
     "doc"
   ];
+
+  nativeBuildInputs = [ unzip ];
 
   patchPhase = ''
     substituteInPlace index.php \
@@ -58,11 +61,11 @@ stdenv.mkDerivation rec {
     cp -R ./* $out
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Personal, minimalist, super-fast, database free, bookmarking service";
-    license = licenses.gpl3Plus;
+    license = lib.licenses.gpl3Plus;
     homepage = "https://github.com/shaarli/Shaarli";
     maintainers = [ ];
-    platforms = platforms.all;
+    platforms = lib.platforms.all;
   };
-}
+})

@@ -14,16 +14,16 @@
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "browsers";
-  version = "0.7.2";
+  version = "0.7.4";
 
   src = fetchFromGitHub {
     owner = "Browsers-software";
     repo = "browsers";
     tag = finalAttrs.version;
-    hash = "sha256-1RWGAEiSJWDoScKuUB5LL1tQyTw5NRnld7Fi93vP0BA=";
+    hash = "sha256-0ITNw0xWG0BWQRRYKCRwiYhFUw6QkYukCCybt7Mdq7A=";
   };
 
-  cargoHash = "sha256-M1KAZPjNu4j5b5Ml2J9OHpD+/jeF8WRP6EzfmLnb0hY=";
+  cargoHash = "sha256-OQbfGOd3lOd8/VxhdvkYMezNx/PO65PzRKcWlI7n/JU=";
 
   nativeBuildInputs = [
     pkg-config
@@ -46,7 +46,7 @@ rustPlatform.buildRustPackage (finalAttrs: {
     mv $out/share/applications/software.Browsers.template.desktop $out/share/applications/software.Browsers.desktop
     substituteInPlace \
         $out/share/applications/software.Browsers.desktop \
-        --replace-fail 'Exec=€ExecCommand€' 'Exec=${finalAttrs.pname} %u'
+        --replace-fail 'Exec=€ExecCommand€' 'Exec=${finalAttrs.meta.mainProgram} %u'
     cp -r resources $out
     for size in 16 32 128 256 512; do
       install -m 444 \

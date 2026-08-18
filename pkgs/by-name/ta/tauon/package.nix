@@ -2,7 +2,6 @@
   lib,
   stdenv,
   fetchFromGitHub,
-  fetchPypi,
   kissfft,
   miniaudio,
   pkg-config,
@@ -17,7 +16,7 @@
   librsvg,
   libsamplerate,
   libvorbis,
-  xorg,
+  libxcursor,
   mpg123,
   opusfile,
   pango,
@@ -25,38 +24,39 @@
   wavpack,
   ffmpeg,
   pulseaudio,
+  rustPlatform,
   withDiscordRPC ? true,
 }:
-
 let
-  # fork of pypresence, to be reverted if/when there's an upstream release
-  lynxpresence = python3Packages.buildPythonPackage rec {
-    pname = "lynxpresence";
-    version = "4.4.1";
-    pyproject = true;
-
-    src = fetchPypi {
-      inherit pname version;
-      hash = "sha256-y/KboyhEGs9RvyKayEIQu2+WaiQNOdsHDl1/pEoqEkQ=";
-    };
-
-    build-system = with python3Packages; [ setuptools ];
-
-    doCheck = false; # tests require internet connection
-    pythonImportsCheck = [ "lynxpresence" ];
-  };
-in
-python3Packages.buildPythonApplication rec {
-  pname = "tauon";
-  version = "8.1.4";
-  pyproject = true;
-
+  version = "11.1.1";
   src = fetchFromGitHub {
     owner = "Taiko2k";
     repo = "Tauon";
     tag = "v${version}";
-    hash = "sha256-AV8B09H/25+2ZOoGux2/A4xP8sBBpRP197JYkS9/awk=";
+    hash = "sha256-/E8+c8FX8JnSaYgaXRKE2u6eIWjkL4yGU1WQTluGWjY=";
   };
+
+  lrclib-solver = rustPlatform.buildRustPackage {
+    pname = "lrclib-solver";
+    inherit version;
+    src = "${src}/src/lrclib-solver";
+    cargoHash = "sha256-uNEf0d462W9mJHGLeAE/aLjpyzKT5orKZ7BYQ+53msY=";
+
+    meta = {
+      mainProgram = "lrclib-solver";
+      license = lib.licenses.gpl3;
+      maintainers = with lib.maintainers; [
+        jansol
+        alfarel
+      ];
+      platforms = lib.platforms.linux ++ lib.platforms.darwin;
+    };
+  };
+in
+python3Packages.buildPythonApplication {
+  pname = "tauon";
+  pyproject = true;
+  inherit version src;
 
   postUnpack = ''
     rmdir source/src/phazor/kissfft
@@ -74,6 +74,8 @@ python3Packages.buildPythonApplication rec {
   pythonRemoveDeps = [
     "opencc"
     "tekore"
+    # Not present when withDiscordRPC is disabled.
+    "pypresence"
   ];
 
   nativeBuildInputs = [
@@ -101,6 +103,7 @@ python3Packages.buildPythonApplication rec {
     opusfile
     pango
     pipewire
+    python3Packages.pyopengl
     wavpack
   ];
 
@@ -121,13 +124,15 @@ python3Packages.buildPythonApplication rec {
       pychromecast
       pylast
       pygobject3
+      pyopengl
       pysdl3
+      rapidfuzz
       requests
       send2trash
       setproctitle
       tidalapi
     ]
-    ++ lib.optional withDiscordRPC lynxpresence
+    ++ lib.optional withDiscordRPC pypresence
     ++ lib.optional stdenv.hostPlatform.isLinux pulsectl;
 
   makeWrapperArgs = [
@@ -139,7 +144,7 @@ python3Packages.buildPythonApplication rec {
           libopenmpt
           pulseaudio
         ]
-        ++ lib.optional stdenv.hostPlatform.isLinux xorg.libXcursor
+        ++ lib.optional stdenv.hostPlatform.isLinux libxcursor
       )
     }"
     "--prefix PYTHONPATH : $out/share/tauon"
@@ -152,7 +157,10 @@ python3Packages.buildPythonApplication rec {
     install -Dm755 extra/tauonmb.desktop $out/share/applications/tauonmb.desktop
     mkdir -p $out/share/icons/hicolor/scalable/apps
     install -Dm644 extra/tauonmb{,-symbolic}.svg $out/share/icons/hicolor/scalable/apps
+    ln -s ${lib.getExe lrclib-solver} $out/${python3Packages.python.sitePackages}/tauon/lrclib-solver
   '';
+
+  passthru = { inherit lrclib-solver; };
 
   meta = {
     description = "Linux desktop music player from the future";
@@ -160,7 +168,10 @@ python3Packages.buildPythonApplication rec {
     homepage = "https://tauonmusicbox.rocks/";
     changelog = "https://github.com/Taiko2k/Tauon/releases/tag/v${version}";
     license = lib.licenses.gpl3;
-    maintainers = with lib.maintainers; [ jansol ];
+    maintainers = with lib.maintainers; [
+      jansol
+      alfarel
+    ];
     platforms = lib.platforms.linux ++ lib.platforms.darwin;
   };
 }

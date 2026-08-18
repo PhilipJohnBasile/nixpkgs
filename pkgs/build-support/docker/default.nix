@@ -1,5 +1,5 @@
 {
-  bashInteractive,
+  bash,
   buildPackages,
   cacert,
   callPackage,
@@ -7,6 +7,7 @@
   coreutils,
   devShellTools,
   e2fsprogs,
+  pkgsBuildBuild,
   proot,
   fakeNss,
   fakeroot,
@@ -70,11 +71,11 @@ let
       # A user is required by nix
       # https://github.com/NixOS/nix/blob/9348f9291e5d9e4ba3c4347ea1b235640f54fd79/src/libutil/util.cc#L478
       export USER=nobody
-      ${buildPackages.nix}/bin/nix-store --load-db < ${
+      ${lib.getExe' buildPackages.nix "nix-store"} --load-db < ${
         closureInfo { rootPaths = contentsList; }
       }/registration
       # Reset registration times to make the image reproducible
-      ${buildPackages.sqlite}/bin/sqlite3 nix/var/nix/db/db.sqlite "UPDATE ValidPaths SET registrationTime = ''${SOURCE_DATE_EPOCH}"
+      ${lib.getExe buildPackages.sqlite} nix/var/nix/db/db.sqlite "UPDATE ValidPaths SET registrationTime = ''${SOURCE_DATE_EPOCH}"
 
       mkdir -p nix/var/nix/gcroots/docker/
       for i in ${lib.concatStringsSep " " contentsList}; do
@@ -113,7 +114,7 @@ let
   compressorForImage =
     compressor: imageName:
     compressors.${compressor}
-      or (throw "in docker image ${imageName}: compressor must be one of: [${toString builtins.attrNames compressors}]");
+      or (throw "in docker image ${imageName}: compressor must be one of: [${toString (builtins.attrNames compressors)}]");
 
 in
 rec {
@@ -121,7 +122,6 @@ rec {
     inherit
       buildImage
       buildLayeredImage
-      fakeNss
       pullImage
       shadowSetup
       buildImageWithNixDb
@@ -565,7 +565,7 @@ rec {
         mkdir -p $out
         tarhash=$(tar -C layer --hard-dereference --sort=name --mtime="@$SOURCE_DATE_EPOCH" -cf - . |
                     tee -p $out/layer.tar |
-                    ${tarsum}/bin/tarsum)
+                    ${lib.getExe tarsum})
 
         cat ${baseJson} | jshon -s "$tarhash" -i checksum > $out/json
         # Indicate to docker that we're using schema version 1.0.
@@ -579,19 +579,26 @@ rec {
     {
       name,
       compressor ? "gz",
+      meta ? { },
       ...
     }@args:
     let
-      stream = streamLayeredImage (removeAttrs args [ "compressor" ]);
+      stream = streamLayeredImage (
+        removeAttrs args [
+          "compressor"
+          "meta"
+        ]
+      );
       compress = compressorForImage compressor name;
     in
     runCommand "${baseNameOf name}.tar${compress.ext}" {
       inherit (stream) imageName;
-      passthru = {
+      passthru = stream.passthru // {
         inherit (stream) imageTag;
         inherit stream;
       };
       nativeBuildInputs = compress.nativeInputs;
+      inherit meta;
     } "${stream} | ${compress.compress} > $out"
   );
 
@@ -641,15 +648,20 @@ rec {
       includeNixDB ? false,
       # Deprecated.
       contents ? null,
+      # Meta options to set on the resulting derivation.
+      meta ? { },
     }:
 
     let
       checked =
         lib.warnIf (contents != null)
           "in docker image ${name}: The contents parameter is deprecated. Change to copyToRoot if the contents are designed to be copied to the root filesystem, such as when you use `buildEnv` or similar between contents and your packages. Use copyToRoot = buildEnv { ... }; or similar if you intend to add packages to /bin."
-          lib.throwIf
-          (contents != null && copyToRoot != null)
-          "in docker image ${name}: You can not specify both contents and copyToRoot.";
+          (
+            if (contents != null && copyToRoot != null) then
+              throw "in docker image ${name}: You can not specify both contents and copyToRoot."
+            else
+              x: x
+          );
 
       rootContents = if copyToRoot == null then contents else copyToRoot;
 
@@ -735,6 +747,7 @@ rec {
                 lib.head (
                   lib.strings.splitString "-" (baseNameOf (builtins.unsafeDiscardStringContext result.outPath))
                 );
+            inherit meta;
           }
           ''
             ${lib.optionalString (tag == null) ''
@@ -956,14 +969,14 @@ rec {
   # "#!/usr/bin/env executable" shebang.
   usrBinEnv = runCommand "usr-bin-env" { } ''
     mkdir -p $out/usr/bin
-    ln -s ${coreutils}/bin/env $out/usr/bin
+    ln -s ${lib.getExe' coreutils "env"} $out/usr/bin
   '';
 
-  # This provides /bin/sh, pointing to bashInteractive.
-  # The use of bashInteractive here is intentional to support cases like `docker run -it <image_name>`, so keep these use cases in mind if making any changes to how this works.
+  # This provides /bin/sh, pointing to bash (interactive).
+  # The use of bash (interactive) here is intentional to support cases like `docker run -it <image_name>`, so keep these use cases in mind if making any changes to how this works.
   binSh = runCommand "bin-sh" { } ''
     mkdir -p $out/bin
-    ln -s ${bashInteractive}/bin/bash $out/bin/sh
+    ln -s ${lib.getExe bash} $out/bin/sh
   '';
 
   # This provides the ca bundle in common locations
@@ -1008,6 +1021,7 @@ rec {
       includeStorePaths ? true,
       includeNixDB ? false,
       passthru ? { },
+      meta ? { },
       # Pipeline used to produce docker layers. If not set, popularity contest
       # algorithm is used. If set, maxLayers is ignored as the author of the
       # pipeline can use one of the available functions (like "limit_layers")
@@ -1020,11 +1034,12 @@ rec {
       debug ? false,
     }:
     assert (
-      lib.assertMsg (layeringPipeline == null -> maxLayers > 1)
-        "the maxLayers argument of dockerTools.buildLayeredImage function must be greather than 1 (current value: ${toString maxLayers})"
+      (layeringPipeline == null -> maxLayers > 1)
+      || throw "the maxLayers argument of dockerTools.buildLayeredImage function must be greather than 1 (current value: ${toString maxLayers})"
     );
     assert (
-      lib.assertMsg (enableFakechroot -> !stdenv.hostPlatform.isDarwin) ''
+      (enableFakechroot -> !stdenv.hostPlatform.isDarwin)
+      || throw ''
         cannot use `enableFakechroot` because `proot` is not portable to Darwin. Workarounds:
               - use `fakeRootCommands` with the restricted `fakeroot` environment
               - cross-compile your packages
@@ -1232,7 +1247,8 @@ rec {
               # take images can know in advance how the image is supposed to be used.
               isExe = true;
             };
-            nativeBuildInputs = [ makeWrapper ];
+            nativeBuildInputs = [ pkgsBuildBuild.makeWrapper ];
+            inherit meta;
           }
           ''
             makeWrapper $streamScript $out --add-flags $conf
@@ -1256,15 +1272,15 @@ rec {
       #
       # https://github.com/NixOS/nix/issues/6379
       homeDirectory ? "/build",
-      shell ? bashInteractive + "/bin/bash",
+      shell ? lib.getExe bash,
       command ? null,
       run ? null,
     }:
-    assert lib.assertMsg (!(drv.drvAttrs.__structuredAttrs or false))
-      "streamNixShellImage: Does not work with the derivation ${drv.name} because it uses __structuredAttrs";
-    assert lib.assertMsg (
-      command == null || run == null
-    ) "streamNixShellImage: Can't specify both command and run";
+    assert
+      !(drv.drvAttrs.__structuredAttrs or false)
+      || throw "streamNixShellImage: Does not work with the derivation ${drv.name} because it uses __structuredAttrs";
+    assert
+      command == null || run == null || throw "streamNixShellImage: Can't specify both command and run";
     let
 
       # A binary that calls the command to build the derivation

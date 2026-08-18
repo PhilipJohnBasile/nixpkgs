@@ -4,23 +4,23 @@
   rustPlatform,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "vopono";
-  version = "0.10.15";
+  version = "0.10.19";
 
   src = fetchCrate {
-    inherit pname version;
-    hash = "sha256-78G0Dm0WAEjjud+vrl7n3Uh6NnMQhs3uY4DIeSTKTJs=";
+    inherit (finalAttrs) pname version;
+    hash = "sha256-ZaDdW9V6SfALBVEg4UkXxpSL1bx6Zo5GJBaU9PhZqpc=";
   };
 
-  cargoHash = "sha256-2CeaDoDl8QyDXN8FHfHm6WRsJOfRiq6yRCKHsXXUV0w=";
+  cargoHash = "sha256-ezAmpzNZ8R6bDQxrzHsnjlXlKtJNPCRGF/yZJ/4dYyg=";
 
-  meta = with lib; {
+  meta = {
     description = "Run applications through VPN connections in network namespaces";
     homepage = "https://github.com/jamesmcm/vopono";
-    license = licenses.gpl3Plus;
-    platforms = platforms.linux;
-    maintainers = [ maintainers.romildo ];
+    license = lib.licenses.gpl3Plus;
+    platforms = lib.platforms.linux;
+    maintainers = [ lib.maintainers.romildo ];
     mainProgram = "vopono";
   };
-}
+})

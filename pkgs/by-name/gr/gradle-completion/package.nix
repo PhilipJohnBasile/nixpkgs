@@ -8,13 +8,13 @@
 
 stdenvNoCC.mkDerivation (finalAttrs: {
   pname = "gradle-completion";
-  version = "1.5.2";
+  version = "9.6.1";
 
   src = fetchFromGitHub {
     owner = "gradle";
     repo = "gradle-completion";
-    rev = "v${finalAttrs.version}";
-    sha256 = "u3bnvNkjKzNp604hnPoAT3YY3Xf9eJlAe174YnM2RMQ=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-bazehfRFvrcKOd5ZCUeKl/Ru/NtlVVS8LoZio+kI7+8=";
   };
 
   nativeBuildInputs = [
@@ -46,6 +46,7 @@ stdenvNoCC.mkDerivation (finalAttrs: {
   meta = {
     description = "Gradle tab completion for bash and zsh";
     homepage = "https://github.com/gradle/gradle-completion";
+    changelog = "https://github.com/gradle/gradle-completion/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.mit;
     teams = [ lib.teams.java ];
   };

@@ -32,25 +32,43 @@ let
   yarn-berry = yarn-berry_4.override { inherit nodejs; };
   productName = if buildType != "stable" then "AFFiNE-${buildType}" else "AFFiNE";
   binName = lib.toLower productName;
+  electron-dist-zip = stdenvNoCC.mkDerivation {
+    pname = "electron-dist-zip";
+    version = electron.version;
+    src = electron.dist;
+    nativeBuildInputs = [ zip ];
+    buildPhase = ''
+      zip --recurse-paths - . > $out
+    '';
+    dontInstall = true;
+  };
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = binName;
 
-  version = "0.25.1";
+  version = "0.26.7";
   src = fetchFromGitHub {
     owner = "toeverything";
     repo = "AFFiNE";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-TrPyxXgrhzODyiamLU49vbIwDzau+jI9D8VWGa734x8=";
+    hash = "sha256-gtdhWLNZRNY91j9wVVny1bRAjZAwIvNJr11ePQapWYQ=";
   };
+
+  patches = [
+    # Remove after upstream updates to Yarn 4.14
+    # https://github.com/toeverything/AFFiNE/blob/canary/package.json#L96
+    ./yarn-4.14-support.patch
+  ];
 
   cargoDeps = rustPlatform.fetchCargoVendor {
     inherit (finalAttrs) pname version src;
-    hash = "sha256-7btQd3i3rfJ3pJV7OXhSIz17Uy48D3OwrsXh/kls8Hc=";
+    hash = "sha256-vZkKFUaNe9iIAkdUfXnnuD2lM6kuzwqj1Dyt5GAgXsM=";
   };
+
+  # keep yarnOfflineCache same output style with offlineCache = yarn-berry.fetchYarnBerryDeps { inherit (finalAttrs) src missingHashes; hash = "" };
   yarnOfflineCache = stdenvNoCC.mkDerivation {
     name = "yarn-offline-cache";
-    inherit (finalAttrs) src;
+    inherit (finalAttrs) src patches;
     nativeBuildInputs = [
       yarn-berry
       cacert
@@ -79,19 +97,22 @@ stdenv.mkDerivation (finalAttrs: {
       ''
         runHook preBuild
 
-        mkdir -p $out
+        mkdir -p $out/cache
+
         yarn config set enableTelemetry false
-        yarn config set cacheFolder $out
+        yarn config set cacheFolder $out/cache
         yarn config set enableGlobalCache false
         yarn config set supportedArchitectures --json '${supportedArchitectures}'
 
         yarn install --immutable --mode=skip-build
 
+        cp yarn.lock $out/yarn.lock
+
         runHook postBuild
       '';
     dontInstall = true;
     outputHashMode = "recursive";
-    outputHash = "sha256-cQFX49K27Q8pKRiZ+UqK4LIwfi3VEgZ7qS7N/rUj8rM=";
+    outputHash = "sha256-mNvvKbj9mUioh5Jw4CcRt0CpX1IcQC8JOxUnyy0Lw9c=";
   };
 
   buildInputs = lib.optionals hostPlatform.isDarwin [
@@ -133,6 +154,7 @@ stdenv.mkDerivation (finalAttrs: {
     echo "$BACKEND_SERVER_PACKAGE_JSON" > packages/backend/server/package.json
   '';
 
+  # FIXME: use `yarn config set cacheFolder $offlineCache/cache`
   configurePhase = ''
     runHook preConfigure
 
@@ -144,14 +166,13 @@ stdenv.mkDerivation (finalAttrs: {
     # yarn config
     yarn config set enableTelemetry false
     yarn config set enableGlobalCache false
-    yarn config set cacheFolder $yarnOfflineCache
+    yarn config set cacheFolder $yarnOfflineCache/cache
 
     # electron config
     ELECTRON_VERSION_IN_LOCKFILE=$(yarn why electron --json | tail --lines 1 | jq --raw-output '.children | to_entries | first | .key ' | cut -d : -f 2)
-    rsync --archive --chmod=u+w "${electron.dist}/" $HOME/.electron-prebuilt-zip-tmp
     export ELECTRON_FORGE_ELECTRON_ZIP_DIR=$PWD/.electron_zip_dir
     mkdir -p $ELECTRON_FORGE_ELECTRON_ZIP_DIR
-    (cd $HOME/.electron-prebuilt-zip-tmp && zip --recurse-paths - .) > $ELECTRON_FORGE_ELECTRON_ZIP_DIR/electron-v$ELECTRON_VERSION_IN_LOCKFILE-${nodePlatform}-${nodeArch}.zip
+    cp ${electron-dist-zip} $ELECTRON_FORGE_ELECTRON_ZIP_DIR/electron-v$ELECTRON_VERSION_IN_LOCKFILE-${nodePlatform}-${nodeArch}.zip
     export ELECTRON_SKIP_BINARY_DOWNLOAD=1
 
     runHook postConfigure
@@ -236,7 +257,6 @@ stdenv.mkDerivation (finalAttrs: {
     platforms = [
       "aarch64-darwin"
       "aarch64-linux"
-      "x86_64-darwin"
       "x86_64-linux"
     ];
     sourceProvenance = [ lib.sourceTypes.fromSource ];

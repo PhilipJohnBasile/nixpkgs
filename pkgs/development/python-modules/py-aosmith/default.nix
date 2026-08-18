@@ -1,7 +1,6 @@
 {
   lib,
   buildPythonPackage,
-  pythonOlder,
   fetchFromGitHub,
   poetry-core,
   aiohttp,
@@ -10,21 +9,17 @@
 
 buildPythonPackage rec {
   pname = "py-aosmith";
-  version = "1.0.14";
+  version = "1.0.18";
   pyproject = true;
-
-  disabled = pythonOlder "3.10";
 
   src = fetchFromGitHub {
     owner = "bdr99";
     repo = "py-aosmith";
     tag = version;
-    hash = "sha256-73kiSrjPDuvSMK8pZMCPns6vm2NhE+9F7GpWEPKR7Ec=";
+    hash = "sha256-sR7yUl97MlxdJHLrA8IjODNk7LJhVxqraaUkPljuMZg=";
   };
 
   build-system = [ poetry-core ];
-
-  pythonRelaxDeps = [ "tenacity" ];
 
   dependencies = [
     aiohttp

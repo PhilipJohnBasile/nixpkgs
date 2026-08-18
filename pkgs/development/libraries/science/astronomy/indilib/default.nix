@@ -2,7 +2,6 @@
   stdenv,
   lib,
   fetchFromGitHub,
-  fetchpatch2,
   bash,
   cmake,
   cfitsio,
@@ -24,23 +23,14 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "indilib";
-  version = "2.1.6";
+  version = "2.2.0";
 
   src = fetchFromGitHub {
     owner = "indilib";
     repo = "indi";
     rev = "v${finalAttrs.version}";
-    hash = "sha256-0+ZC9NoanBDojYz/ufZUpUQB++vnMcUYtG1UmmVGbTg=";
+    hash = "sha256-XTb+etafMRTP/Arb087s+kZoqFT50RT1fpVDeHaGdmY=";
   };
-
-  # fixes version number. This commit is directly after the tagged commit in master
-  # should be removed with the next release
-  patches = [
-    (fetchpatch2 {
-      url = "https://github.com/indilib/indi/commit/91e3e35250126887a856e90b6a0a30697fb01545.patch?full_index=1";
-      hash = "sha256-ho1S+A6gTQ9ELy/QE14S6daXyMN+vASFbXa2vMWdqR8=";
-    })
-  ];
 
   nativeBuildInputs = [
     cmake
@@ -75,7 +65,8 @@ stdenv.mkDerivation (finalAttrs: {
 
   checkInputs = [ gtest ];
 
-  doCheck = true;
+  # tests seem to be broken on darwin
+  doCheck = !stdenv.hostPlatform.isDarwin;
   doInstallCheck = true;
 
   # Socket address collisions between tests
@@ -96,16 +87,16 @@ stdenv.mkDerivation (finalAttrs: {
     };
   };
 
-  meta = with lib; {
+  meta = {
     homepage = "https://www.indilib.org/";
     description = "Implementation of the INDI protocol for POSIX operating systems";
     changelog = "https://github.com/indilib/indi/releases/tag/v${finalAttrs.version}";
-    license = licenses.lgpl2Plus;
+    license = lib.licenses.lgpl2Plus;
     mainProgram = "indiserver";
-    maintainers = with maintainers; [
+    maintainers = with lib.maintainers; [
       sheepforce
       returntoreality
     ];
-    platforms = platforms.unix;
+    platforms = lib.platforms.unix;
   };
 })

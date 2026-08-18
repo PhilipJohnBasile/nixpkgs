@@ -1,9 +1,9 @@
 {
-  buildGo124Module,
+  buildGoModule,
   cmake,
   fetchFromGitHub,
   git,
-  go_1_24,
+  go,
   lib,
   nlohmann_json,
   stdenv,
@@ -11,21 +11,21 @@
 }:
 
 let
-  version = "0.21.2";
+  version = "0.22.1";
 
   src = fetchFromGitHub {
     owner = "f-koehler";
     repo = "KTailctl";
-    rev = "v${version}";
-    hash = "sha256-CP5ivqhYVCotsL6e9eV9L1OGr2W+vNHJOq8hMYj7g/o=";
+    tag = "v${version}";
+    hash = "sha256-BRkjVZaoxiMW8JltIkYDiCCE2kNGLDpRJd0iclQMcGY=";
   };
 
   goDeps =
-    (buildGo124Module {
+    (buildGoModule {
       pname = "ktailctl-go-wrapper";
       inherit src version;
-      modRoot = "src/wrapper";
-      vendorHash = "sha256-uZydTufEpGKbX3T3Zm4WTU2ZZNhC6oHSb/sHPM4ekmQ=";
+      modRoot = "src/tailscale/wrapper";
+      vendorHash = "sha256-h2gf9igVOguNRroGK6qvinUlEkpeZ2YJTtKArvlMj88=";
     }).goModules;
 in
 stdenv.mkDerivation {
@@ -33,7 +33,7 @@ stdenv.mkDerivation {
   inherit version src;
 
   postPatch = ''
-    cp -r --reflink=auto ${goDeps} src/wrapper/vendor
+    cp -r --reflink=auto ${goDeps} src/tailscale/wrapper/vendor
   '';
 
   # needed for go build to work
@@ -50,7 +50,7 @@ stdenv.mkDerivation {
     cmake
     extra-cmake-modules
     git
-    go_1_24
+    go
     wrapQtAppsHook
   ];
 
@@ -72,12 +72,13 @@ stdenv.mkDerivation {
     qtwayland
   ];
 
-  meta = with lib; {
+  meta = {
     description = "GUI to monitor and manage Tailscale on your Linux desktop";
+    changelog = "https://github.com/f-koehler/KTailctl/releases/tag/${src.tag}";
     homepage = "https://github.com/f-koehler/KTailctl";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [ k900 ];
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [ k900 ];
     mainProgram = "ktailctl";
-    platforms = platforms.unix;
+    platforms = lib.platforms.unix;
   };
 }

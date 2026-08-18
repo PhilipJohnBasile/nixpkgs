@@ -16,6 +16,7 @@
   extraPostPatch ? "",
   extraNativeBuildInputs ? [ ],
   extraConfigureFlags ? [ ],
+  extraPreConfigure ? "",
   extraBuildInputs ? [ ],
   extraMakeFlags ? [ ],
   extraPassthru ? { },
@@ -45,18 +46,20 @@ in
   pkgs,
   stdenv,
   patchelf,
+  fetchpatch,
 
   # build time
   autoconf,
   cargo,
   dump_syms,
-  makeWrapper,
+  makeBinaryWrapper,
   mimalloc,
   nodejs,
   perl,
   pkg-config,
   pkgsCross, # wasm32 rlbox
   python3,
+  python313,
   runCommand,
   rustc,
   rust-cbindgen,
@@ -75,8 +78,6 @@ in
   glib,
   gnum4,
   gtk3,
-  icu73,
-  icu77, # if you fiddle with the icu parameters, please check Thunderbird's overrides
   libGL,
   libGLU,
   libevent,
@@ -92,7 +93,17 @@ in
   nss_latest,
   onnxruntime,
   pango,
-  xorg,
+  libxt,
+  libxtst,
+  libxrender,
+  libxi,
+  libxft,
+  libxext,
+  libxdamage,
+  libxcursor,
+  libx11,
+  xorgproto,
+  pixman,
   zip,
   zlib,
   pkgsBuildBuild,
@@ -100,6 +111,7 @@ in
   # Darwin
   apple-sdk_14,
   apple-sdk_15,
+  apple-sdk_26,
   cups,
   rsync, # used when preparing .app directory
 
@@ -128,11 +140,19 @@ in
   jemallocSupport ? !stdenv.hostPlatform.isMusl,
   jemalloc,
   ltoSupport ? (
-    stdenv.hostPlatform.isLinux && stdenv.hostPlatform.is64bit && !stdenv.hostPlatform.isRiscV
+    (stdenv.hostPlatform.isLinux || stdenv.hostPlatform.isDarwin)
+    && stdenv.hostPlatform.is64bit
+    && !stdenv.hostPlatform.isRiscV
   ),
   overrideCC,
   buildPackages,
-  pgoSupport ? (stdenv.hostPlatform.isLinux && stdenv.hostPlatform == stdenv.buildPlatform),
+  # PGO merges profile data with a 32-bit llvm-profdata, which runs out of
+  # address space on the huge libxul profile, so disable it on 32-bit.
+  pgoSupport ? (
+    stdenv.hostPlatform.isLinux
+    && stdenv.hostPlatform == stdenv.buildPlatform
+    && stdenv.hostPlatform.is64bit
+  ),
   xvfb-run,
   elfhackSupport ?
     isElfhackPlatform stdenv && !(stdenv.hostPlatform.isMusl && stdenv.hostPlatform.isAarch64),
@@ -161,7 +181,7 @@ in
   geolocationSupport ? !privacySupport,
   webrtcSupport ? !privacySupport,
 
-  # digital rights managemewnt
+  # digital rights management
 
   # This flag controls whether Firefox will show the nagbar, that allows
   # users at runtime the choice to enable Widevine CDM support when a site
@@ -226,9 +246,9 @@ let
   # https://hacks.mozilla.org/2021/12/webassembly-and-back-again-fine-grained-sandboxing-in-firefox-95/
   # We only link c++ libs here, our compiler wrapper can find wasi libc and crt itself.
   wasiSysRoot = runCommand "wasi-sysroot" { } ''
-    mkdir -p $out/lib/wasm32-wasi
-    for lib in ${pkgsCross.wasi32.llvmPackages.libcxx}/lib/*; do
-      ln -s $lib $out/lib/wasm32-wasi
+    mkdir -p $out/lib/wasm32-wasip1
+    for lib in ${pkgsCross.wasm32-wasip1.llvmPackages.libcxx}/lib/*; do
+      ln -s $lib $out/lib/wasm32-wasip1
     done
   '';
 
@@ -289,7 +309,17 @@ buildStdenv.mkDerivation {
   pname = "${pname}-unwrapped";
   version = packageVersion;
 
-  inherit src unpackPhase meta;
+  inherit src unpackPhase;
+
+  __structuredAttrs = true;
+  strictDeps = true;
+
+  meta =
+    meta
+    // lib.optionalAttrs stdenv.hostPlatform.isDarwin {
+      # MacOS builds may take a long time and sometimes hit the default timeout
+      timeout = lib.max (24 * 60 * 60) (meta.timeout or 0);
+    };
 
   outputs = [
     "out"
@@ -313,24 +343,24 @@ buildStdenv.mkDerivation {
       # https://hg-edge.mozilla.org/mozilla-central/rev/aa8a29bd1fb9
       ./139-wayland-drag-animation.patch
     ]
-    ++
-      lib.optionals
-        (
-          lib.versionAtLeast version "141.0.2"
-          || (lib.versionAtLeast version "140.2.0" && lib.versionOlder version "141.0")
-        )
-        [
-          ./142-relax-apple-sdk.patch
-        ]
+    ++ lib.optionals (lib.versionAtLeast version "140" && lib.versionOlder version "144") [
+      # Versions before 144 vendor bindgen 0.69. On Darwin, libc++ 21 changed
+      # basic_string::__self_view from a typedef to an attributed using alias;
+      # bindgen then emits it without its template parameter, producing invalid
+      # Rust. Vendored bindgen was updated in:
+      # https://bugzilla.mozilla.org/show_bug.cgi?id=1985509
+      ./140-bindgen-string-view.patch
+    ]
+    ++ lib.optionals (lib.versionAtLeast version "140" && lib.versionOlder version "140.13") [
+      # https://github.com/mozilla/cbindgen/issues/1165
+      # https://bugzilla.mozilla.org/show_bug.cgi?id=2046162
+      ./153-cbindgen-0.29.4-compat.patch
+    ]
     ++ extraPatches;
 
   postPatch = ''
     rm -rf obj-x86_64-pc-linux-gnu
     patchShebangs mach build
-  ''
-  # https://bugzilla.mozilla.org/show_bug.cgi?id=1927380
-  + lib.optionalString (lib.versionAtLeast version "134") ''
-    sed -i "s/icu-i18n/icu-uc &/" js/moz.configure
   ''
   + extraPostPatch;
 
@@ -342,27 +372,25 @@ buildStdenv.mkDerivation {
     "-l"
   ];
 
-  # if not explicitly set, wrong cc from buildStdenv would be used
-  HOST_CC = "${llvmPackagesBuildBuild.stdenv.cc}/bin/cc";
-  HOST_CXX = "${llvmPackagesBuildBuild.stdenv.cc}/bin/c++";
-
   nativeBuildInputs = [
     autoconf
     cargo
     gnum4
     llvmPackagesBuildBuild.bintools
-    makeWrapper
+    makeBinaryWrapper
     nodejs
     perl
-    python3
+    (if lib.versionAtLeast version "143.0" then python3 else python313)
     rust-cbindgen
     rustPlatform.bindgenHook
     rustc
     unzip
     which
+  ]
+  ++ lib.optionals (!stdenv.hostPlatform.isDarwin) [
+    pkg-config
     wrapGAppsHook3
   ]
-  ++ lib.optionals (!stdenv.hostPlatform.isDarwin) [ pkg-config ]
   ++ lib.optionals stdenv.hostPlatform.isDarwin [ rsync ]
   ++ lib.optionals stdenv.hostPlatform.isx86 [ nasm ]
   ++ lib.optionals crashreporterSupport [
@@ -399,8 +427,8 @@ buildStdenv.mkDerivation {
     export MACH_BUILD_PYTHON_NATIVE_PACKAGE_SOURCE=system
 
     # RBox WASM Sandboxing
-    export WASM_CC=${pkgsCross.wasi32.stdenv.cc}/bin/${pkgsCross.wasi32.stdenv.cc.targetPrefix}cc
-    export WASM_CXX=${pkgsCross.wasi32.stdenv.cc}/bin/${pkgsCross.wasi32.stdenv.cc.targetPrefix}c++
+    export WASM_CC=${pkgsCross.wasm32-wasip1.stdenv.cc}/bin/${pkgsCross.wasm32-wasip1.stdenv.cc.targetPrefix}cc
+    export WASM_CXX=${pkgsCross.wasm32-wasip1.stdenv.cc}/bin/${pkgsCross.wasm32-wasip1.stdenv.cc.targetPrefix}c++
   ''
   + lib.optionalString pgoSupport ''
     if [ -e "$TMPDIR/merged.profdata" ]; then
@@ -444,19 +472,7 @@ buildStdenv.mkDerivation {
     # TODO: Default vm.max_map_count has been increased, retest without this
     export LD_PRELOAD=${mimalloc}/lib/libmimalloc.so
   ''
-  +
-    # fileport.h was exposed in SDK 15.4 but we have only 15.2 in nixpkgs so far.
-    lib.optionalString
-      (
-        stdenv.hostPlatform.isDarwin
-        && lib.versionAtLeast version "143"
-        && lib.versionOlder apple-sdk_15.version "15.4"
-      )
-      ''
-        mkdir -p xnu/sys
-        cp ${apple-sdk_15.sourceRelease "xnu"}/bsd/sys/fileport.h xnu/sys
-        export CXXFLAGS="-isystem $(pwd)/xnu"
-      '';
+  + extraPreConfigure;
 
   # firefox has a different definition of configurePlatforms from nixpkgs, see configureFlags
   configurePlatforms = [ ];
@@ -474,7 +490,7 @@ buildStdenv.mkDerivation {
     "--host=${buildStdenv.buildPlatform.config}"
     "--target=${buildStdenv.hostPlatform.config}"
   ]
-  # LTO is done using clang and lld on Linux.
+  # LTO is done using clang and lld.
   ++ lib.optionals ltoSupport [
     "--enable-lto=cross,full" # Cross-Language LTO
     "--enable-linker=lld"
@@ -486,7 +502,8 @@ buildStdenv.mkDerivation {
     # MacOS builds use bundled versions of libraries: https://bugzilla.mozilla.org/show_bug.cgi?id=1776255
     "--enable-system-pixman"
     "--with-system-ffi"
-    "--with-system-icu"
+    # Mozilla vendors 10+ patches and ICU upstream is very slow to adopt them
+    # "--with-system-icu"
     "--with-system-jpeg"
     "--with-system-libevent"
     "--with-system-libvpx"
@@ -540,7 +557,14 @@ buildStdenv.mkDerivation {
     zip
   ]
   ++ lib.optionals stdenv.hostPlatform.isDarwin [
-    (if lib.versionAtLeast version "138" then apple-sdk_15 else apple-sdk_14)
+    (
+      if lib.versionAtLeast version "145" then
+        apple-sdk_26
+      else if lib.versionAtLeast version "138" then
+        apple-sdk_15
+      else
+        apple-sdk_14
+    )
     cups
   ]
   ++ (lib.optionals (!stdenv.hostPlatform.isDarwin) (
@@ -559,17 +583,17 @@ buildStdenv.mkDerivation {
       libwebp
       nspr
       pango
-      xorg.libX11
-      xorg.libXcursor
-      xorg.libXdamage
-      xorg.libXext
-      xorg.libXft
-      xorg.libXi
-      xorg.libXrender
-      xorg.libXt
-      xorg.libXtst
-      xorg.pixman
-      xorg.xorgproto
+      libx11
+      libxcursor
+      libxdamage
+      libxext
+      libxft
+      libxi
+      libxrender
+      libxt
+      libxtst
+      pixman
+      xorgproto
       zlib
       (if (lib.versionAtLeast version "144") then nss_latest else nss_esr)
     ]
@@ -582,14 +606,13 @@ buildStdenv.mkDerivation {
       libdrm
     ]
   ))
-  ++ [ (if (lib.versionAtLeast version "138") then icu77 else icu73) ]
   ++ lib.optional gssSupport libkrb5
   ++ lib.optional jemallocSupport jemalloc
   ++ extraBuildInputs;
 
   profilingPhase = lib.optionalString pgoSupport ''
     # Avoid compressing the instrumented build with high levels of compression
-    export MOZ_PKG_FORMAT=tar
+    export MOZ_PKG_FORMAT=TAR
 
     # Package up Firefox for profiling
     ./mach package
@@ -622,7 +645,12 @@ buildStdenv.mkDerivation {
   makeFlags = extraMakeFlags;
   separateDebugInfo = enableDebugSymbols;
   enableParallelBuilding = true;
-  env = lib.optionalAttrs stdenv.hostPlatform.isMusl {
+  env = {
+    # if not explicitly set, wrong cc from buildStdenv would be used
+    HOST_CC = "${llvmPackagesBuildBuild.stdenv.cc}/bin/cc";
+    HOST_CXX = "${llvmPackagesBuildBuild.stdenv.cc}/bin/c++";
+  }
+  // lib.optionalAttrs stdenv.hostPlatform.isMusl {
     # Firefox relies on nonstandard behavior of the glibc dynamic linker. It re-uses
     # previously loaded libraries even though they are not in the rpath of the newly loaded binary.
     # On musl we have to explicitly set the rpath to include these libraries.
@@ -658,9 +686,6 @@ buildStdenv.mkDerivation {
     + lib.optionalString (!stdenv.hostPlatform.isDarwin) ''
       # Remove SDK cruft. FIXME: move to a separate output?
       rm -rf $out/share/idl $out/include $out/lib/${binaryName}-devel-*
-
-      # Needed to find Mozilla runtime
-      gappsWrapperArgs+=(--argv0 "$out/bin/.${binaryName}-wrapped")
 
       resourceDir=$out/lib/${binaryName}
     ''

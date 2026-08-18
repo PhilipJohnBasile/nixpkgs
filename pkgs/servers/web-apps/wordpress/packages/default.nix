@@ -43,7 +43,7 @@ let
           license,
           ...
         }@args:
-        assert lib.any (x: x == type) [
+        assert lib.elem type [
           "plugin"
           "theme"
           "language"
@@ -116,7 +116,7 @@ let
         }
       ) { };
 
-      # Filter out all characters that might occur in a version string but that that are not allowed
+      # Filter out all characters that might occur in a version string but that are not allowed
       # in store paths.
       filterWPString =
         builtins.replaceStrings

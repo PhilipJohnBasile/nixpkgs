@@ -3,8 +3,11 @@
   stdenv,
   fetchFromGitHub,
   nodejs,
+  fetchPnpmDeps,
+  pnpmConfigHook,
   pnpm_10,
   npmHooks,
+  nix-update-script,
 }:
 let
   pnpm = pnpm_10;
@@ -20,15 +23,17 @@ stdenv.mkDerivation (finalAttrs: {
     hash = "sha256-N6X9Wffl9WumCXvAt4y+vs3ZJY7NheK+O8BObmuIa/g=";
   };
 
-  pnpmDeps = pnpm.fetchDeps {
+  pnpmDeps = fetchPnpmDeps {
     inherit (finalAttrs) pname version src;
-    fetcherVersion = 2;
-    hash = "sha256-UKSIfn2iR8Ydk9ViGCgWtspZr1FjTeW49UMwTcL57UA=";
+    inherit pnpm;
+    fetcherVersion = 3;
+    hash = "sha256-S+GxeljcPj/MzBkleVNgaRa8D4kmHrKwwVqakmB5sAw=";
   };
 
   nativeBuildInputs = [
     nodejs
-    pnpm.configHook
+    pnpmConfigHook
+    pnpm
     npmHooks.npmInstallHook
   ];
 
@@ -41,6 +46,8 @@ stdenv.mkDerivation (finalAttrs: {
   '';
 
   dontNpmPrune = true;
+
+  passthru.updateScript = nix-update-script { };
 
   meta = {
     description = "Beautiful Changelogs using Conventional Commits";

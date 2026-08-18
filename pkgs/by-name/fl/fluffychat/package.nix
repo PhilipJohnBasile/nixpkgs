@@ -6,14 +6,13 @@
   imagemagick,
   libgbm,
   libdrm,
-  flutter332,
+  flutter344,
   pulseaudio,
+  webkitgtk_4_1,
   copyDesktopItems,
   makeDesktopItem,
-
   callPackage,
-  vodozemac-wasm ? callPackage ./vodozemac-wasm.nix { flutter = flutter332; },
-
+  vodozemac-wasm ? callPackage ./vodozemac-wasm.nix { flutter = flutter344; },
   targetFlutterPlatform ? "linux",
 }:
 
@@ -23,30 +22,33 @@ let
     libdrm
   ];
   pubspecLock = lib.importJSON ./pubspec.lock.json;
-  libwebrtc = fetchzip {
-    url = "https://github.com/flutter-webrtc/flutter-webrtc/releases/download/v1.1.0/libwebrtc.zip";
-    sha256 = "sha256-lRfymTSfoNUtR5tSUiAptAvrrTwbB8p+SaYQeOevMzA=";
-  };
+  libwebrtc_version = "m144.7559.09";
+  libwebrtc =
+    {
+      x86_64-linux = fetchzip {
+        url = "https://github.com/webrtc-sdk/libwebrtc/releases/download/libwebrtc.${libwebrtc_version}/libwebrtc-linux-x64-release.zip";
+        sha256 = "sha256-uzS07voCGM1zs663UalYpb8pWiYpkrKMxKt/wB4rcB4=";
+      };
+      aarch64-linux = fetchzip {
+        url = "https://github.com/webrtc-sdk/libwebrtc/releases/download/libwebrtc.${libwebrtc_version}/libwebrtc-linux-arm64-release.zip";
+        sha256 = "sha256-nMMU/HrCN4zSB4vO1O4TfJRBtK87OX+zYbxZRq8Q4Us=";
+      };
+    }
+    .${stdenv.hostPlatform.system};
 in
-flutter332.buildFlutterApplication (
+flutter344.buildFlutterApplication (
   rec {
     pname = "fluffychat-${targetFlutterPlatform}";
-    version = "2.1.1";
+    version = "2.8.0";
 
     src = fetchFromGitHub {
       owner = "krille-chan";
       repo = "fluffychat";
       tag = "v${version}";
-      hash = "sha256-Gk3PtIb90rmrEIq52aL+vBHhRG6LoyfG2jrAGH5Iyqo=";
+      hash = "sha256-+2srYuGNsCvxc89gq3zHgeCHrWTid7Oqtdno/Q/9hgk=";
     };
 
     inherit pubspecLock;
-
-    gitHashes = {
-      flutter_web_auth_2 = "sha256-3aci73SP8eXg6++IQTQoyS+erUUuSiuXymvR32sxHFw=";
-      flutter_typeahead = "sha256-ZGXbbEeSddrdZOHcXE47h3Yu3w6oV7q+ZnO6GyW7Zg8=";
-      flutter_secure_storage_linux = "sha256-cFNHW7dAaX8BV7arwbn68GgkkBeiAgPfhMOAFSJWlyY=";
-    };
 
     inherit targetFlutterPlatform;
 
@@ -59,6 +61,8 @@ flutter332.buildFlutterApplication (
         tebriel
         aleksana
       ];
+      # Refer to https://github.com/NixOS/nixpkgs/issues/545995
+      broken = stdenv.hostPlatform.isAarch64;
       badPlatforms = lib.platforms.darwin;
     }
     // lib.optionalAttrs (targetFlutterPlatform == "linux") {
@@ -69,11 +73,13 @@ flutter332.buildFlutterApplication (
     nativeBuildInputs = [
       imagemagick
       copyDesktopItems
+      webkitgtk_4_1
     ];
 
     runtimeDependencies = [ pulseaudio ];
 
     env.NIX_LDFLAGS = "-rpath-link ${libwebrtcRpath}";
+    env.CXXFLAGS = "-include cstdint";
 
     desktopItems = [
       (makeDesktopItem {
@@ -87,6 +93,7 @@ flutter332.buildFlutterApplication (
           "Network"
           "InstantMessaging"
         ];
+        startupWMClass = "fluffychat";
       })
     ];
 
@@ -99,8 +106,15 @@ flutter332.buildFlutterApplication (
           inherit (src) passthru;
 
           postPatch = ''
+            # Since we directly supply the binary distribution of libwebrtc instead of letting the builder download it we need to check that we still provide the correct version.
+            # nixpkgs forbids import from derivation, so we cannot simply read the contents to fetch the correct version
+            if ! grep -q "binary_version = libwebrtc.${libwebrtc_version}" third_party/libwebrtc_version.ini; then
+              echo -en "\nWrong libwebrtc version is in use!\n\t'libwebrtc.${libwebrtc_version}' was supplied, but cannot be found in 'third_party/libwebrtc_version.ini'.\nflutter_webrtc expects the following version:\n\t"
+              grep "binary_version" third_party/libwebrtc_version.ini; echo
+              false # triggers the build failure
+            fi
             substituteInPlace third_party/CMakeLists.txt \
-              --replace-fail "\''${CMAKE_CURRENT_LIST_DIR}/downloads/libwebrtc.zip" ${libwebrtc}
+              --replace-fail "\''${LIBWEBRTC_THIRD_PARTY_DIR}/downloads/\''${LIBWEBRTC_ASSET}.zip" ${libwebrtc}
               ln -s ${libwebrtc} third_party/libwebrtc
           '';
 
@@ -115,15 +129,18 @@ flutter332.buildFlutterApplication (
         };
     };
 
+    postPatch = ''
+      substituteInPlace linux/CMakeLists.txt \
+        --replace-fail \
+        "PRIVATE -Wall -Werror" \
+        "PRIVATE -Wall"
+    '';
+
     postInstall = ''
-      FAV=$out/app/fluffychat-linux/data/flutter_assets/assets/favicon.png
       ICO=$out/share/icons
 
-      for size in 24 32 42 64 128 256 512; do
-        D=$ICO/hicolor/''${size}x''${size}/apps
-        mkdir -p $D
-        magick $FAV -resize ''${size}x''${size} $D/fluffychat.png
-      done
+      mkdir -p $ICO/hicolor/scalable/apps
+      cp $src/assets/logo/vector/logo_standalone.svg $ICO/hicolor/scalable/apps/fluffychat.png
 
       patchelf --add-rpath ${libwebrtcRpath} $out/app/fluffychat-linux/lib/libwebrtc.so
     '';

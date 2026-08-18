@@ -5,15 +5,15 @@
   nix-update-script,
 }:
 
-python3.pkgs.buildPythonApplication rec {
+python3.pkgs.buildPythonApplication (finalAttrs: {
   pname = "signal-export";
-  version = "3.8.1";
+  version = "3.9.0";
   pyproject = true;
 
   src = fetchPypi {
-    inherit version;
+    inherit (finalAttrs) version;
     pname = "signal_export";
-    hash = "sha256-o+Z4vSqu2avQyzf93o5s2hKmCK2I8aoF4JGlLzM/9xI=";
+    hash = "sha256-iJfbeY1xVWsg95TpZqauTyy9uywWp6jZAdMlZaPDDmQ=";
   };
 
   build-system = with python3.pkgs; [
@@ -24,6 +24,7 @@ python3.pkgs.buildPythonApplication rec {
     typer
     beautifulsoup4
     emoji
+    filetype
     markdown
     pycryptodome
     sqlcipher3-wheels
@@ -31,15 +32,15 @@ python3.pkgs.buildPythonApplication rec {
 
   passthru.updateScript = nix-update-script { };
 
-  meta = with lib; {
+  meta = {
     mainProgram = "sigexport";
     homepage = "https://github.com/carderne/signal-export";
     description = "Export your Signal chats to markdown files with attachments";
-    platforms = platforms.unix;
-    license = licenses.mit;
-    maintainers = with maintainers; [
+    platforms = lib.platforms.unix;
+    license = lib.licenses.mit;
+    maintainers = with lib.maintainers; [
       phaer
       picnoir
     ];
   };
-}
+})

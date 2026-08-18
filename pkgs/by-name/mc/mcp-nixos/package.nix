@@ -4,53 +4,35 @@
   python3Packages,
 }:
 
-python3Packages.buildPythonApplication rec {
+python3Packages.buildPythonApplication (finalAttrs: {
   pname = "mcp-nixos";
-  version = "1.0.2";
+  version = "3.0.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "utensils";
     repo = "mcp-nixos";
-    tag = "v${version}";
-    hash = "sha256-SbmfP5Qo7liu39tTpIm6IC2qfwChooTYaPZiJqgwTzY=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-ZqUFTYxXJB4RN+o+5AD8MOK1Fig+I5aOXrzpNpXL0No=";
   };
-
-  patches = [
-    # This patch mocks nix channel listing network calls in tests
-    ./tests-mock-nix-channels.patch
-  ];
 
   build-system = [ python3Packages.hatchling ];
 
   dependencies = with python3Packages; [
     beautifulsoup4
     fastmcp
-    mcp
     requests
   ];
 
-  pythonRelaxDeps = [ "fastmcp" ];
-
   nativeCheckInputs = with python3Packages; [
-    anthropic
     pytestCheckHook
     pytest-asyncio
-    python-dotenv
-  ];
-
-  disabledTestMarks = [
-    # Require network access
-    "integration"
+    pytest-cov-stub
   ];
 
   disabledTestPaths = [
-    # Require network access
-    "tests/test_nixhub.py"
-    "tests/test_mcp_behavior.py"
-    "tests/test_options.py"
-    # Requires configured channels
-    "tests/test_channels.py"
+    # Requires network access
+    "tests/test_integration.py"
   ];
 
   pythonImportsCheck = [ "mcp_nixos" ];
@@ -58,9 +40,9 @@ python3Packages.buildPythonApplication rec {
   meta = {
     description = "MCP server for NixOS";
     homepage = "https://github.com/utensils/mcp-nixos";
-    changelog = "https://github.com/utensils/mcp-nixos/releases/tag/${src.tag}";
+    changelog = "https://github.com/utensils/mcp-nixos/releases/tag/${finalAttrs.src.tag}";
     license = lib.licenses.mit;
     maintainers = [ lib.maintainers.amadejkastelic ];
     mainProgram = "mcp-nixos";
   };
-}
+})

@@ -4,14 +4,14 @@
   fetchPypi,
 }:
 
-python3Packages.buildPythonApplication rec {
+python3Packages.buildPythonApplication (finalAttrs: {
   pname = "onionprobe";
-  version = "1.4.0";
+  version = "1.4.1";
   pyproject = true;
 
   src = fetchPypi {
-    inherit pname version;
-    sha256 = "sha256-rjExMm1mkoeRiv+aNuC6Ieo0/X5sbsjuSiAHcnQxjFo=";
+    inherit (finalAttrs) pname version;
+    sha256 = "sha256-RcEsiYKeNEQil0qp1WzGU9HiCi8iXnPuGK65lcpHor4=";
   };
 
   build-system = with python3Packages; [
@@ -30,9 +30,9 @@ python3Packages.buildPythonApplication rec {
   meta = {
     description = "Tooling for onion service monitoring";
     homepage = "https://onionservices.torproject.org/apps/web/onionprobe/";
-    changelog = "https://gitlab.torproject.org/tpo/onion-services/onionprobe/-/blob/${version}/docs/changelog.md";
+    changelog = "https://gitlab.torproject.org/tpo/onion-services/onionprobe/-/blob/${finalAttrs.version}/docs/changelog.md";
     license = lib.licenses.gpl3Plus;
     maintainers = [ lib.maintainers.ForgottenBeast ];
     mainProgram = "onionprobe";
   };
-}
+})

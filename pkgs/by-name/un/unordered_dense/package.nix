@@ -3,23 +3,19 @@
   lib,
   fetchFromGitHub,
   cmake,
-  ninja,
 }:
 stdenv.mkDerivation (finalAttrs: {
-  pname = "unordered-dense";
-  version = "4.7.0";
+  pname = "unordered_dense";
+  version = "4.9.1";
 
   src = fetchFromGitHub {
     owner = "martinus";
     repo = "unordered_dense";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-j+iBqmedykRYJm8Q6WudQrfPc1CHP9URHip+gkFhK0I=";
+    hash = "sha256-f+gO4rzDq1vTpd6THeXiYY6MNov9k69CBimCIx3E0Ys=";
   };
 
-  nativeBuildInputs = [
-    cmake
-    ninja
-  ];
+  nativeBuildInputs = [ cmake ];
 
   meta = {
     description = "Fast & densely stored hashmap and hashset based on robin-hood backward shift deletion";

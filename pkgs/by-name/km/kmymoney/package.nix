@@ -24,11 +24,11 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "kmymoney";
-  version = "5.2.1";
+  version = "5.2.2";
 
   src = fetchurl {
     url = "mirror://kde/stable/kmymoney/${finalAttrs.version}/kmymoney-${finalAttrs.version}.tar.xz";
-    hash = "sha256-/q30C21MkNd+MnFqhY3SN2kIGGMQTYzqYpELHsPkM2s=";
+    hash = "sha256-QLZjnmohYQDSAkjtdPoVQgL5zN+8M1Inztwb746l03c=";
   };
 
   cmakeFlags = [
@@ -75,6 +75,11 @@ stdenv.mkDerivation (finalAttrs: {
     # Put it into buildInputs so that CMake can find it, even though we patch
     # it into the interface later.
     python3.pkgs.woob
+  ];
+
+  patches = [
+    # from https://src.fedoraproject.org/rpms/kmymoney/c/8f7f40d7fec6db96610e60a6a99717479594c8bd
+    ./kmymoney-fix-build-against-qt-6-10.patch
   ];
 
   postPatch = ''

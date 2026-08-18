@@ -2,8 +2,8 @@
   stdenv,
   lib,
   fetchFromGitHub,
-  fetchzip,
   fetchpatch,
+  fetchzip,
   autoconf,
   automake,
   libtool,
@@ -82,7 +82,7 @@
   harfbuzz,
   lcms2,
   libidn2,
-  libpthreadstubs,
+  libpthread-stubs,
   libtasn1,
   libplist,
   p11-kit,
@@ -93,21 +93,19 @@
   lirc,
   mesa-gl-headers,
   x11Support ? true,
-  libX11,
+  libx11,
   xorgproto,
-  libXt,
-  libXmu,
-  libXext,
-  libXinerama,
-  libXrandr,
-  libXtst,
-  libXfixes,
+  libxt,
+  libxmu,
+  libxext,
+  libxinerama,
+  libxrandr,
+  libxtst,
+  libxfixes,
   xdpyinfo,
-  libXdmcp,
+  libxdmcp,
   dbusSupport ? true,
   dbus,
-  joystickSupport ? true,
-  cwiid,
   nfsSupport ? true,
   libnfs,
   pulseSupport ? true,
@@ -245,28 +243,25 @@ stdenv.mkDerivation (
   in
   {
     pname = "kodi";
-    version = "21.2";
+    version = "21.3";
     kodiReleaseName = "Omega";
 
     src = fetchFromGitHub {
       owner = "xbmc";
       repo = "xbmc";
       rev = "${finalAttrs.version}-${finalAttrs.kodiReleaseName}";
-      hash = "sha256-RdTJcq6FPerQx05dU3r8iyaorT4L7162hg5RdywsA88=";
+      hash = "sha256-36wBAqGEDCRZ4t1ygTg03Pyk7Gg9quUTUGD3SBp6nCk=";
     };
 
     patches = [
-      # Backport to fix build with Pipewire 1.4
-      # FIXME: remove in the next update
+      # TexturePacker has some conditionals on GIFLIB 5, which break with
+      # GIFLIB 6. This has been extended to support all versions >= 5 upstream,
+      # but has not yet made it into a release.
+      # https://github.com/xbmc/xbmc/pull/28016
       (fetchpatch {
-        url = "https://github.com/xbmc/xbmc/commit/269053ebbfd3cc4a3156a511f54ab7f08a09a730.patch";
-        hash = "sha256-JzzrMJvAufrxTxtWnzknUS9JLJEed+qdtVnIYYe9LCw=";
-      })
-      # Backport to fix build with cURL 8.16
-      # FIXME: remove in the next update
-      (fetchpatch {
-        url = "https://github.com/xbmc/xbmc/commit/957b4faa0b765bc91e64c6d33f07e853decae0d0.patch";
-        hash = "sha256-zsqcZSjsApcgs/oEdFFlcwldGCVZxCsDG02ogs+q2uw=";
+        name = "texturepacker-giflib-6.patch";
+        url = "https://github.com/xbmc/xbmc/commit/29492cbd20d4c90a9c00a30ab525d4d0e81a968b.patch";
+        hash = "sha256-WNaODPCtRfn30jVU5HbBnAO2Vl/MQp2CYmKOTTyDGZI=";
       })
     ];
 
@@ -303,7 +298,6 @@ stdenv.mkDerivation (
       tinyxml-2
       taglib
       libssh
-      gtest
       ncurses
       spdlog
       alsa-lib
@@ -351,7 +345,7 @@ stdenv.mkDerivation (
       glib
       harfbuzz
       lcms2
-      libpthreadstubs
+      libpthread-stubs
       ffmpeg
       flatbuffers
       fstrcmp
@@ -366,19 +360,18 @@ stdenv.mkDerivation (
       zlib
     ]
     ++ lib.optionals x11Support [
-      libX11
+      libx11
       xorgproto
-      libXt
-      libXmu
-      libXext.dev
-      libXdmcp
-      libXinerama
-      libXrandr.dev
-      libXtst
-      libXfixes
+      libxt
+      libxmu
+      libxext.dev
+      libxdmcp
+      libxinerama
+      libxrandr.dev
+      libxtst
+      libxfixes
     ]
     ++ lib.optional dbusSupport dbus
-    ++ lib.optional joystickSupport cwiid
     ++ lib.optional nfsSupport libnfs
     ++ lib.optional pulseSupport libpulseaudio
     ++ lib.optional pipewireSupport pipewire
@@ -421,6 +414,10 @@ stdenv.mkDerivation (
       waylandpp.bin
     ];
 
+    nativeCheckInputs = [
+      gtest
+    ];
+
     depsBuildBuild = [
       buildPackages.stdenv.cc
     ];
@@ -461,9 +458,23 @@ stdenv.mkDerivation (
       "-DWITH_TEXTUREPACKER=${lib.getExe texturePacker}"
     ];
 
-    # 14 tests fail but the biggest issue is that every test takes 30 seconds -
-    # I'm guessing there is a thing waiting to time out
-    doCheck = false;
+    doCheck = stdenv.buildPlatform.canExecute stdenv.hostPlatform;
+    checkPhase = ''
+      runHook preCheck
+
+      make -j $NIX_BUILD_CORES kodi-test
+
+      ./kodi-test --gtest_filter=-${
+        lib.concatStringsSep ":" [
+          "TestCPUInfo.GetCPUFrequency"
+          "TestNetwork.PingHost"
+          "TestSystemInfo.GetOsName"
+          "TestSystemInfo.GetOsPrettyNameWithVersion"
+        ]
+      }
+
+      runHook postCheck
+    '';
 
     preConfigure = ''
       cmakeFlagsArray+=("-DCORE_PLATFORM_NAME=${lib.concatStringsSep " " kodi_platforms}")
@@ -516,12 +527,12 @@ stdenv.mkDerivation (
       kodi = finalAttrs.finalPackage;
     };
 
-    meta = with lib; {
+    meta = {
       description = "Media center";
       homepage = "https://kodi.tv/";
-      license = licenses.gpl2Plus;
-      platforms = platforms.linux;
-      teams = [ teams.kodi ];
+      license = lib.licenses.gpl2Plus;
+      platforms = lib.platforms.linux;
+      teams = [ lib.teams.kodi ];
       mainProgram = "kodi";
     };
   }

@@ -17,14 +17,6 @@ let
             hash = "sha256-MoEee4He7iBj6m0ulPiBmobR84EeSdI2I6QfqDK+8D8=";
           };
         });
-        urllib3 = super.urllib3.overridePythonAttrs (old: rec {
-          version = "1.26.20";
-          src = fetchPypi {
-            pname = "urllib3";
-            inherit version;
-            hash = "sha256-QMLcDGgeR+uPkOfie/b/ffLmd0If1GdW2hFhw5ynDTI=";
-          };
-        });
       };
     in
     python3.override {
@@ -39,7 +31,7 @@ python.pkgs.buildPythonApplication rec {
 
   src = fetchFromGitHub {
     owner = "RicterZ";
-    repo = "nhentai";
+    repo = "doujinshi-dl";
     rev = version;
     hash = "sha256-KwcaCeeGeR6qSfraSYyf4VEims9YWB6j3HmpT8XSePo=";
   };
@@ -64,8 +56,13 @@ python.pkgs.buildPythonApplication rec {
     chardet
   ];
 
+  pythonRelaxDeps = [
+    "tabulate"
+    "urllib3"
+  ];
+
   meta = {
-    homepage = "https://github.com/RicterZ/nhentai";
+    homepage = "https://github.com/RicterZ/doujinshi-dl";
     description = "CLI tool for downloading doujinshi from adult site(s)";
     license = lib.licenses.mit;
     maintainers = [ ];

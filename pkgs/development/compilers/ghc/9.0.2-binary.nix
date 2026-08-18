@@ -116,29 +116,6 @@ let
           }
         ];
       };
-      x86_64-darwin = {
-        variantSuffix = "";
-        src = {
-          url = "${downloadsUrl}/${version}/ghc-${version}-x86_64-apple-darwin.tar.xz";
-          sha256 = "e1fe990eb987f5c4b03e0396f9c228a10da71769c8a2bc8fadbc1d3b10a0f53a";
-        };
-        exePathForLibraryCheck = null; # we don't have a library check for darwin yet
-        archSpecificLibraries = [
-          {
-            nixPackage = gmp;
-            fileToCheckFor = null;
-          }
-          {
-            nixPackage = ncurses6;
-            fileToCheckFor = null;
-          }
-          {
-            nixPackage = libiconv;
-            fileToCheckFor = null;
-          }
-        ];
-        isHadrian = true;
-      };
       aarch64-darwin = {
         variantSuffix = "";
         src = {
@@ -250,7 +227,7 @@ stdenv.mkDerivation {
   # of the bindist installer can find the libraries they expect.
   # Cannot patchelf beforehand due to relative RPATHs that anticipate
   # the final install location.
-  ${libEnvVar} = libPath;
+  env.${libEnvVar} = libPath;
 
   postUnpack =
     # Verify our assumptions of which `libtinfo.so` (ncurses) version is used,
@@ -474,13 +451,6 @@ stdenv.mkDerivation {
       "$out/bin/ghc-pkg" --package-db="$package_db" recache
     '';
 
-  # GHC cannot currently produce outputs that are ready for `-pie` linking.
-  # Thus, disable `pie` hardening, otherwise `recompile with -fPIE` errors appear.
-  # See:
-  # * https://github.com/NixOS/nixpkgs/issues/129247
-  # * https://gitlab.haskell.org/ghc/ghc/-/issues/19580
-  hardeningDisable = [ "pie" ];
-
   doInstallCheck = true;
   installCheckPhase = ''
     # Sanity check, can ghc create executables?
@@ -531,5 +501,6 @@ stdenv.mkDerivation {
     # `pkgsMusl`.
     platforms = builtins.attrNames ghcBinDists.${distSetName};
     teams = [ lib.teams.haskell ];
+    sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
   };
 }

@@ -2,7 +2,6 @@
   stdenv,
   lib,
   fetchFromGitHub,
-  fetchpatch,
   gitUpdater,
   cmake,
   bzip2,
@@ -12,30 +11,19 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "cfitsio";
-  version = "4.6.2";
+  version = "4.6.4";
 
   src = fetchFromGitHub {
     owner = "HEASARC";
-    repo = finalAttrs.pname;
-    tag = "${finalAttrs.pname}-${finalAttrs.version}";
-    hash = "sha256-WLsX23hNhaITjCvMEV7NUEvyDfQiObSJt1qFC12z7wY=";
+    repo = "cfitsio";
+    tag = "cfitsio-${finalAttrs.version}";
+    hash = "sha256-8AFPTr8j8f+x1h78IXOV8GHkDPWvI8w8aRxyke3Dras=";
   };
 
   outputs = [
     "bin"
     "dev"
     "out"
-    "doc"
-  ];
-
-  patches = [
-    ./cfitsio-pc-cmake.patch
-
-    (fetchpatch {
-      name = "cfitsio-fix-cmake-4.patch";
-      url = "https://github.com/HEASARC/cfitsio/commit/101e0880fca41e2223df7eec56d9e84e90b9ed56.patch";
-      hash = "sha256-rufuqOBfE7ItTYwsGdu9G4BXSz4vZd52XmJi09kqrCM=";
-    })
   ];
 
   nativeBuildInputs = [
@@ -75,7 +63,6 @@ stdenv.mkDerivation (finalAttrs: {
   # Fixup installation
   # Remove installed test tools and benchmark
   postInstall = ''
-    install -Dm644 -t "$out/share/doc/${finalAttrs.pname}" ../docs/*.pdf
     rm "$out/bin/cookbook"
     rmdir "$out/bin"
     rm "$bin/bin/smem" "$bin/bin/speed"
@@ -86,7 +73,7 @@ stdenv.mkDerivation (finalAttrs: {
   };
 
   meta = {
-    homepage = "https://heasarc.gsfc.nasa.gov/fitsio/";
+    homepage = "https://heasarc.gsfc.nasa.gov/docs/software/fitsio/";
     description = "Library for reading and writing FITS data files";
     longDescription = ''
       CFITSIO is a library of C and Fortran subroutines for reading and
@@ -98,7 +85,7 @@ stdenv.mkDerivation (finalAttrs: {
       FITS files.
     '';
     changelog = "https://heasarc.gsfc.nasa.gov/FTP/software/fitsio/c/docs/changes.txt";
-    license = lib.licenses.mit;
+    license = lib.licenses.cfitsio;
     maintainers = with lib.maintainers; [
       returntoreality
       xbreak

@@ -1,15 +1,36 @@
 {
   callPackage,
   lib,
-  jre_headless,
+  jre_minimal,
   fetchFromGitHub,
+  fetchpatch,
   maven,
   makeWrapper,
+  nix-update-script,
 }:
 
 let
-  jre = jre_headless;
-  version = "7.15.0";
+  jre = jre_minimal.override {
+    modules = [
+      "java.base"
+      "java.compiler"
+      "java.datatransfer"
+      "java.desktop"
+      "java.instrument"
+      "java.logging"
+      "java.management"
+      "java.naming"
+      "java.net.http"
+      "java.prefs"
+      "java.scripting"
+      "java.security.jgss"
+      "java.sql"
+      "java.xml"
+      "jdk.compiler"
+      "jdk.unsupported"
+    ];
+  };
+  version = "7.24.0";
   mainProgram = "openapi-generator-cli";
   this = maven.buildMavenPackage {
     inherit version;
@@ -20,10 +41,18 @@ let
       owner = "OpenAPITools";
       repo = "openapi-generator";
       tag = "v${version}";
-      hash = "sha256-IgjlMOHMASijIt5nMqOZcUpxecbWljHh9rA1YUwUmwM=";
+      hash = "sha256-LUJmC82d8efH5vIxM9r+5HmypmX/OPFrCMSTk6kE5lY=";
     };
 
-    mvnHash = "sha256-woHPf7vPja70cNj6Glqr0OGAR8CV8qWiRu0hkmCcCrA=";
+    patches = [
+      # Achieve reproducible mvnHash by pinning develocity plugin.
+      (fetchpatch {
+        url = "https://github.com/OpenAPITools/openapi-generator/commit/ff66e1bc7fe33dcee89de7296eb7bcd5e2a11cc6.patch";
+        hash = "sha256-E1VgtaIW1V+8ch2RpW850fVNl5Iqitjog+0b8DKFgZw=";
+      })
+    ];
+
+    mvnHash = "sha256-pgTBxCtLGs7NRNugiYSrAH3/BsNuI9EYwhqHwnh40iU=";
     mvnParameters = "-Duser.home=$TMPDIR";
     doCheck = false;
 
@@ -47,8 +76,11 @@ let
       runHook postInstall
     '';
 
-    passthru.tests.example = callPackage ./example.nix {
-      openapi-generator-cli = this;
+    passthru = {
+      updateScript = nix-update-script { };
+      tests.example = callPackage ./example.nix {
+        openapi-generator-cli = this;
+      };
     };
 
     meta = {

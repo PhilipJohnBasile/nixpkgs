@@ -11,13 +11,13 @@
 
 stdenv.mkDerivation {
   pname = "re-Isearch";
-  version = "2.20220925.4.0a-unstable-2025-10-17";
+  version = "2.20220925.4.0a-unstable-2026-03-03";
 
   src = fetchFromGitHub {
     owner = "re-Isearch";
     repo = "re-Isearch";
-    rev = "4487eae1f59e9e9b4affdb612c217f63cf20b0ca";
-    hash = "sha256-VZ7b/SOWDrDN3eN2ZpH+GxfCJVPABWTIKBUJkE1XFDM=";
+    rev = "54054aab10fce6ab0a3b0271034fcc85b2a4f99d";
+    hash = "sha256-+djhBlIHxcwWP80hydgkgLWuOnyHL9nVpQ7pqzUv8rI=";
   };
 
   patches = [
@@ -39,7 +39,7 @@ stdenv.mkDerivation {
 
   nativeBuildInputs = [ writableTmpDirAsHomeHook ];
 
-  buildinputs = [
+  buildInputs = [
     db
     file # libmagic
     libnsl

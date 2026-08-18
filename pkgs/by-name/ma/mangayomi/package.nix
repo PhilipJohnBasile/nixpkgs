@@ -1,10 +1,11 @@
 {
   lib,
   stdenv,
-  flutter332,
+  flutter344,
   rustPlatform,
   fetchFromGitHub,
   copyDesktopItems,
+  alsa-lib,
   mpv-unwrapped,
   webkitgtk_4_1,
   makeDesktopItem,
@@ -13,20 +14,20 @@
 
 let
   pname = "mangayomi";
-  version = "0.6.35";
+  version = "0.8.0";
 
   src = fetchFromGitHub {
     owner = "kodjodevf";
     repo = "mangayomi";
     tag = "v${version}";
-    hash = "sha256-XSXFo0+rLTUJ0p3F5+CvKD85OmrShb2xrpQK0F6fo2U=";
+    hash = "sha256-xdspJrqlTj+D5S69Y2dLcAZ0wfyTbpNytC8mY1fXnqo=";
   };
 
   metaCommon = {
     changelog = "https://github.com/kodjodevf/mangayomi/releases/tag/v${version}";
     description = "Reading manga, novels, and watching animes";
     homepage = "https://github.com/kodjodevf/mangayomi";
-    license = with lib.licenses; [ asl20 ];
+    license = lib.licenses.asl20;
     maintainers = [ ];
     platforms = lib.platforms.linux;
   };
@@ -36,14 +37,14 @@ let
 
     sourceRoot = "${src.name}/rust";
 
-    cargoHash = "sha256-DDHBLQWscORg4+0CX5c2wmrhm2t7wOpotZFB+85w+EA=";
+    cargoHash = "sha256-0XsGqhmTLe0y4TJCpU65Ewwgo0MNUp8EPPJ6Hv7Hci8=";
 
     passthru.libraryPath = "lib/librust_lib_mangayomi.so";
 
     meta = metaCommon;
   };
 in
-flutter332.buildFlutterApplication {
+flutter344.buildFlutterApplication {
   inherit pname version src;
 
   pubspecLock = lib.importJSON ./pubspec.lock.json;
@@ -85,7 +86,7 @@ flutter332.buildFlutterApplication {
 
           buildAndTestSubdir = "rust";
 
-          cargoHash = "sha256-vYVg5ZALQDrolDtbbXm/epE5MmSKpRJbSU15VDiKh4U=";
+          cargoHash = "sha256-8pCwqYWPS098kQGl2BqRfkq9ZF0KIlfzuPqzuQeictM=";
 
           passthru.libraryPath = "lib/libflutter_discord_rpc_fork.so";
         };
@@ -117,11 +118,12 @@ flutter332.buildFlutterApplication {
       };
   };
 
-  gitHashes = lib.importJSON ./gitHashes.json;
+  gitHashes = lib.importJSON ./git-hashes.json;
 
   nativeBuildInputs = [ copyDesktopItems ];
 
   buildInputs = [
+    alsa-lib
     mpv-unwrapped
     webkitgtk_4_1
   ];
@@ -145,7 +147,7 @@ flutter332.buildFlutterApplication {
   ];
 
   postInstall = ''
-    install -Dm644 assets/app_icons/icon-red.png $out/share/pixmaps/mangayomi.png
+    install -Dm644 assets/app_icons/icon-red.png $out/share/icons/mangayomi.png
   '';
 
   extraWrapProgramArgs = ''

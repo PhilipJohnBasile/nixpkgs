@@ -3,7 +3,6 @@
   pkgs,
   src,
   officialRelease,
-  maintainers,
   teams,
   version,
 }:
@@ -123,11 +122,9 @@ let
       +
         lib.optionalString
           (
-            !stdenv.hostPlatform.isWindows
+            !(stdenv.hostPlatform.isWindows || stdenv.hostPlatform.isCygwin)
             # build failure
             && !stdenv.hostPlatform.isStatic
-            # LTO breaks exception handling on x86-64-darwin.
-            && stdenv.system != "x86_64-darwin"
           )
           ''
             case "$mesonBuildType" in
@@ -150,7 +147,6 @@ let
       pkg-config
     ];
     separateDebugInfo = !stdenv.hostPlatform.isStatic;
-    hardeningDisable = lib.optional stdenv.hostPlatform.isStatic "pie";
   };
 
   mesonLibraryLayer = finalAttrs: prevAttrs: {
@@ -192,6 +188,12 @@ let
     pos = builtins.unsafeGetAttrPos "pname" prevAttrs;
     meta = prevAttrs.meta or { } // {
       homepage = prevAttrs.meta.homepage or "https://nixos.org/nix";
+      donationPage = prevAttrs.meta.donationPage or "https://nixos.org/donate/";
+      changelog =
+        let
+          ver = lib.versions.majorMinor finalAttrs.version;
+        in
+        prevAttrs.meta.changelog or "https://nix.dev/manual/nix/${ver}/release-notes/rl-${ver}.html";
       longDescription =
         prevAttrs.longDescription or ''
           Nix is a powerful package manager for mainly Linux and other Unix systems that
@@ -201,7 +203,6 @@ let
           environments.
         '';
       license = prevAttrs.meta.license or lib.licenses.lgpl21Plus;
-      maintainers = prevAttrs.meta.maintainers or [ ] ++ scope.maintainers;
       teams = prevAttrs.meta.teams or [ ] ++ scope.teams;
       platforms = prevAttrs.meta.platforms or (lib.platforms.unix ++ lib.platforms.windows);
     };
@@ -225,7 +226,6 @@ in
 # This becomes the pkgs.nixComponents attribute set
 {
   inherit version;
-  inherit maintainers;
   inherit teams;
 
   inherit filesetToSource;
@@ -372,8 +372,11 @@ in
   nix-main-c = callPackage ../src/libmain-c/package.nix { };
 
   nix-cmd = callPackage ../src/libcmd/package.nix { };
+  # TODO: upstream nix-cmd-c to Nix from devenv
+  nix-cmd-c = callPackage ../src/libcmd-c/package.nix { };
 
   nix-cli = callPackage ../src/nix/package.nix { };
+  ${whenAtLeast "2.34pre" "nix-nswrapper"} = callPackage ../src/nswrapper/package.nix { };
 
   nix-functional-tests = callPackage ../tests/functional/package.nix { };
 
@@ -381,7 +384,8 @@ in
   nix-internal-api-docs = callPackage ../src/internal-api-docs/package.nix { };
   nix-external-api-docs = callPackage ../src/external-api-docs/package.nix { };
 
-  nix-perl-bindings = callPackage ../src/perl/package.nix { };
+  nix-perl-bindings =
+    if (lib.versionAtLeast version "2.35pre") then null else callPackage ../src/perl/package.nix { };
 
   nix-everything = callPackage ../packaging/everything.nix { } // {
     # Note: no `passthru.overrideAllMesonComponents` etc

@@ -9,7 +9,6 @@
 
   # dependencies
   attrs,
-  exceptiongroup,
   idna,
   outcome,
   sniffio,
@@ -21,6 +20,7 @@
   pyopenssl,
   pytestCheckHook,
   pytest-trio,
+  pyyaml,
   trustme,
 }:
 
@@ -35,16 +35,14 @@ let
 in
 buildPythonPackage rec {
   pname = "trio";
-  version = "0.30.0";
+  version = "0.33.0";
   pyproject = true;
-
-  disabled = pythonOlder "3.8";
 
   src = fetchFromGitHub {
     owner = "python-trio";
     repo = "trio";
     tag = "v${version}";
-    hash = "sha256-spYHwVq3iNhnZQf2z7aTyDuSCiSl3X5PD6siXqLC4EA=";
+    hash = "sha256-juqlTJPcXpLdzO5OBCcwVR7rckABza9TAhPs9ta5c8U=";
   };
 
   build-system = [ setuptools ];
@@ -55,19 +53,21 @@ buildPythonPackage rec {
     outcome
     sniffio
     sortedcontainers
-  ]
-  ++ lib.optionals (pythonOlder "3.11") [ exceptiongroup ];
+  ];
 
   __darwinAllowLocalNetworking = true;
 
   nativeCheckInputs = [
     astor
-    jedi
     pyopenssl
     pytestCheckHook
     pytest-trio'
+    pyyaml
     trustme
-  ];
+  ]
+  # jedi has no compatibility with python 3.14 yet
+  # https://github.com/davidhalter/jedi/issues/2064
+  ++ lib.optional (pythonOlder "3.14") jedi;
 
   preCheck = ''
     export HOME=$TMPDIR
@@ -105,6 +105,5 @@ buildPythonPackage rec {
       mit
       asl20
     ];
-    maintainers = with lib.maintainers; [ catern ];
   };
 }

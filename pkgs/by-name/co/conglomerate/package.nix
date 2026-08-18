@@ -14,7 +14,7 @@
 
 stdenv.mkDerivation {
   pname = "conglomerate";
-  version = "unstable-2023-01-19";
+  version = "1.6.80-unstable-2023-01-19";
 
   src = fetchFromGitHub {
     owner = "BIC-MNI";
@@ -46,6 +46,11 @@ stdenv.mkDerivation {
     "-DLIBMINC_DIR=${libminc}/lib/cmake"
     "-DBICPL_DIR=${bicpl}/lib"
   ];
+
+  postPatch = ''
+    substituteInPlace CMakeLists.txt \
+      --replace-fail "CMAKE_MINIMUM_REQUIRED(VERSION 3.1)" "cmake_minimum_required(VERSION 3.10)"
+  '';
 
   postFixup = ''
     for p in $out/bin/*; do

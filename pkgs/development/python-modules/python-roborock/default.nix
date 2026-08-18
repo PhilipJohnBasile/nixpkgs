@@ -7,73 +7,61 @@
   buildPythonPackage,
   click,
   construct,
-  dacite,
   fetchFromGitHub,
-  fetchpatch,
   freezegun,
+  hatchling,
   paho-mqtt,
-  poetry-core,
+  protobuf,
   pycryptodome,
   pycryptodomex,
   pyrate-limiter,
+  pyshark,
   pytest-asyncio,
   pytestCheckHook,
-  pythonOlder,
-  vacuum-map-parser-roborock,
-  pyshark,
   pyyaml,
+  vacuum-map-parser-roborock,
   click-shell,
   syrupy,
+  writableTmpDirAsHomeHook,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "python-roborock";
-  version = "2.50.2";
+  version = "5.31.1";
   pyproject = true;
-
-  disabled = pythonOlder "3.11";
 
   src = fetchFromGitHub {
     owner = "Python-roborock";
     repo = "python-roborock";
-    tag = "v${version}";
-    hash = "sha256-66kSNkivq6BHnqIqx1INtdoysBJfCqV76yIAJiHmfxQ=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-HjiOZd+fkCTlxMEiuHWxaFeHwf7vHAYESMLkJ9Cye1U=";
   };
 
-  patches = [
-    # https://github.com/Python-roborock/python-roborock/pull/527
-    (fetchpatch {
-      name = "replace async-timeout with asyncio.timeout.patch";
-      url = "https://github.com/Python-roborock/python-roborock/commit/f376027f5933e163441cf1815b820056731a3632.patch";
-      excludes = [ "poetry.lock" ];
-      hash = "sha256-53xsQ3yxh9CilC9hNS31rDXZVFG+mMhe7ffOb4L6bUE=";
-    })
+  pythonRelaxDeps = [
+    "protobuf"
+    "pycryptodome"
   ];
 
-  postPatch = ''
-    substituteInPlace pyproject.toml \
-      --replace-fail "poetry-core==1.8.0" "poetry-core"
-  '';
-
-  pythonRelaxDeps = [ "pycryptodome" ];
-
-  build-system = [ poetry-core ];
+  build-system = [ hatchling ];
 
   dependencies = [
     aiohttp
     aiomqtt
-    click
     construct
-    dacite
     paho-mqtt
+    protobuf
     pycryptodome
     pyrate-limiter
     vacuum-map-parser-roborock
-    pyyaml
-    pyshark
-    click-shell
   ]
   ++ lib.optionals stdenv.hostPlatform.isDarwin [ pycryptodomex ];
+
+  optional-dependencies.cli = [
+    click
+    click-shell
+    pyyaml
+    pyshark
+  ];
 
   nativeCheckInputs = [
     aioresponses
@@ -81,16 +69,25 @@ buildPythonPackage rec {
     pytest-asyncio
     pytestCheckHook
     syrupy
+    writableTmpDirAsHomeHook
+  ]
+  ++ lib.concatAttrValues finalAttrs.passthru.optional-dependencies;
+
+  disabledTests = [
+    # url mocking mismatch, probably due to yarl update
+    "test_url_cycling"
   ];
+
+  __darwinAllowLocalNetworking = true;
 
   pythonImportsCheck = [ "roborock" ];
 
-  meta = with lib; {
+  meta = {
     description = "Python library & console tool for controlling Roborock vacuum";
     homepage = "https://github.com/Python-roborock/python-roborock";
-    changelog = "https://github.com/Python-roborock/python-roborock/blob/${src.tag}/CHANGELOG.md";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [ fab ];
+    changelog = "https://github.com/Python-roborock/python-roborock/blob/${finalAttrs.src.tag}/CHANGELOG.md";
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [ fab ];
     mainProgram = "roborock";
   };
-}
+})

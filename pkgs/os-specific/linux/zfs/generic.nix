@@ -57,7 +57,7 @@ let
 
     let
       inherit (lib)
-        any
+        elem
         optionalString
         optionals
         optional
@@ -66,30 +66,18 @@ let
 
       smartmon = smartmontools.override { inherit enableMail; };
 
-      buildKernel = any (n: n == configFile) [
+      buildKernel = elem configFile [
         "kernel"
         "all"
       ];
-      buildUser = any (n: n == configFile) [
+      buildUser = elem configFile [
         "user"
         "all"
       ];
       kernelIsCompatible =
         kernel:
-        let
-          nextMajorMinor =
-            ver:
-            "${lib.versions.major ver}.${
-              lib.pipe ver [
-                lib.versions.minor
-                lib.toInt
-                (x: x + 1)
-                toString
-              ]
-            }";
-        in
         (lib.versionAtLeast kernel.version kernelMinSupportedMajorMinor)
-        && (lib.versionOlder kernel.version (nextMajorMinor kernelMaxSupportedMajorMinor));
+        && (lib.versionAtLeast kernelMaxSupportedMajorMinor (lib.versions.majorMinor kernel.version));
 
       # XXX: You always want to build kernel modules with the same stdenv as the
       # kernel was built with. However, since zfs can also be built for userspace we
@@ -152,6 +140,11 @@ let
                ]
              }"
 
+          # substitute path that ZFS will pass on when calling external helper scripts (/etc/zfs/zpool.d/*, zfs_prepare_disk)
+          substituteInPlace ./lib/libzfs/libzfs_util.c \
+            --replace-fail \"PATH=/bin:/sbin:/usr/bin:/usr/sbin\" \
+            \"PATH=/run/wrappers/bin:/run/current-system/sw/bin:/run/current-system/sw/sbin\"
+
           substituteInPlace ./config/zfs-build.m4 \
             --replace-fail "bashcompletiondir=/etc/bash_completion.d" \
               "bashcompletiondir=$out/share/bash-completion/completions"
@@ -193,7 +186,7 @@ let
         ++ optional (buildUser && enablePython) python3;
 
       # for zdb to get the rpath to libgcc_s, needed for pthread_cancel to work
-      NIX_CFLAGS_LINK = "-lgcc_s";
+      env.NIX_CFLAGS_LINK = "-lgcc_s";
 
       hardeningDisable = [
         "fortify"
@@ -295,7 +288,15 @@ let
           done
         '';
 
-      outputs = [ "out" ] ++ optionals buildUser [ "dev" ];
+      outputs = [
+        "out"
+      ]
+      ++ optionals buildUser [
+        "dev"
+      ]
+      ++ optionals (!buildKernel) [
+        "man"
+      ];
 
       passthru = {
         inherit kernel;

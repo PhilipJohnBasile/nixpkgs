@@ -15,7 +15,7 @@ let
       overrideScope = f: callPackageWithScope (mkScope (fix' (extends f scope.__unfix__))) drv args;
     };
 
-  mkScope = scope: pkgs // pkgs.xorg // pkgs.gnome2 // scope;
+  mkScope = scope: pkgs // scope;
 
   idrisPackages =
     self:
@@ -65,7 +65,7 @@ let
 
       # The set of libraries that comes with idris
 
-      builtins = pkgs.lib.mapAttrsToList (name: value: value) builtins_;
+      builtins = pkgs.lib.attrValues builtins_;
 
       # Libraries
 

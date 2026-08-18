@@ -7,20 +7,21 @@
   gitMinimal,
   sqlite,
   radicle-node,
+  writableTmpDirAsHomeHook,
   versionCheckHook,
   nixosTests,
 }:
 
 rustPlatform.buildRustPackage (finalAttrs: {
   pname = "radicle-ci-broker";
-  version = "0.21.0";
+  version = "0.31.0";
 
   src = fetchFromRadicle {
-    seed = "seed.radicle.xyz";
+    seed = "seed.radicle.dev";
     repo = "zwTxygwuz5LDGBq255RA2CbNGrz8";
     node = "z6MkgEMYod7Hxfy9qCvDv5hYHkZ4ciWmLFgfvm3Wn1b2w2FV";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-c0Qo6dnR9rP4mLXODkNZp+AnhKS0tqJeh1KgzfHBRV4=";
+    hash = "sha256-yY2ke4JBAn0ZTaZ7HV8GCPF5Yqj1j+7GvjFXQQVM3ME=";
     leaveDotGit = true;
     postFetch = ''
       git -C $out rev-parse --short HEAD > $out/.git_head
@@ -28,15 +29,21 @@ rustPlatform.buildRustPackage (finalAttrs: {
     '';
   };
 
-  cargoHash = "sha256-9MkZh1hlHgLC9rGmLx5ehtLtZfhXsCqrJrCJNr1edBU=";
+  cargoHash = "sha256-+XB2+k18gWEO7tpsQK+ua133PcZ0mxV+txle7VutXIk=";
 
   postPatch = ''
     substituteInPlace build.rs \
       --replace-fail "let hash = " "let hash = \"$(<$src/.git_head)\"; "
+
+    substituteInPlace ci-broker.md \
+      --replace-fail 'PATH: /bin' "" \
+      --replace-fail '"PATH": "/bin"' ""
   '';
 
   preCheck = ''
     ln -s "$PWD/target/${stdenv.hostPlatform.rust.rustcTarget}/$cargoBuildType" target/debug
+
+    rad auth --alias alice --stdin </dev/null
   '';
 
   nativeCheckInputs = [
@@ -44,17 +51,12 @@ rustPlatform.buildRustPackage (finalAttrs: {
     gitMinimal
     sqlite
     radicle-node
+    writableTmpDirAsHomeHook
   ];
 
-  checkFlags = [
-    "--skip=acceptance_criteria_for_upgrades"
-    "--skip=logs_adapter_stderr_output"
-    "--skip=process_queued_events"
-    "--skip=runs_adapter_with_configuration"
-  ];
+  checkFlags = [ "--skip=acceptance_criteria_for_upgrades" ];
 
   nativeInstallCheckInputs = [ versionCheckHook ];
-  versionCheckProgramArg = "--version";
   doInstallCheck = true;
 
   passthru = {
@@ -64,13 +66,13 @@ rustPlatform.buildRustPackage (finalAttrs: {
 
   meta = {
     description = "Radicle CI broker";
-    homepage = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:zwTxygwuz5LDGBq255RA2CbNGrz8";
-    changelog = "https://app.radicle.xyz/nodes/seed.radicle.xyz/rad:zwTxygwuz5LDGBq255RA2CbNGrz8/tree/NEWS.md";
+    homepage = "https://radicle.network/nodes/seed.radicle.dev/rad:zwTxygwuz5LDGBq255RA2CbNGrz8";
+    changelog = "https://radicle.network/nodes/seed.radicle.dev/rad:zwTxygwuz5LDGBq255RA2CbNGrz8/tree/NEWS.md";
     license = with lib.licenses; [
       mit
       asl20
     ];
-    maintainers = with lib.maintainers; [ defelo ];
+    teams = [ lib.teams.radicle ];
     mainProgram = "cib";
   };
 })

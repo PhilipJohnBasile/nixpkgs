@@ -10,6 +10,7 @@
   python3,
   which,
   boost,
+  curl,
   ftgl,
   freetype,
   glew,
@@ -22,13 +23,14 @@
   libGL,
   libGLU,
   libpng,
-  libX11,
+  libx11,
   libxml2,
   protobuf,
   xvfb-run,
   gnugrep,
   nixosTests,
   dedicatedServer ? false,
+  ...
 }:
 
 let
@@ -49,9 +51,9 @@ let
       # https://gitlab.com/armagetronad/armagetronad/-/tags
       ${latestVersionMajor} =
         let
-          version = "${latestVersionMajor}.2.3";
+          version = "${latestVersionMajor}.3.0";
           rev = "v${version}";
-          hash = "sha256-lfYJ3luGK9hB0aiiBiJIqq5ddANqGaVtKXckbo4fl2g=";
+          hash = "sha256-xoUb0AAhaiAYA88Sn5/CfofMjGkYDLsCPVKwzHGz1XA=";
         in
         dedicatedServer: {
           inherit version;
@@ -59,7 +61,7 @@ let
           extraBuildInputs = lib.optionals (!dedicatedServer) [
             libGL
             libGLU
-            libX11
+            libx11
             libpng
             SDL
             SDL_image
@@ -70,11 +72,11 @@ let
       # https://gitlab.com/armagetronad/armagetronad/-/commits/trunk/?ref_type=heads
       ${unstableVersionMajor} =
         let
-          rev = "813b684ab0de8ee9737c9fc1f9b90ba0543dd418";
-          hash = "sha256-01jWE9rSBJn+JS8p8LTFqIGquOY1avXsAZnfYfo5pPk=";
+          rev = "16da4a669d4c4d269132a903228918c2a8b87b08";
+          hash = "sha256-nTTJwxnTYP3kBxSMNpcYaKfMVGF6U/pYa2r10d8YdCE=";
         in
         dedicatedServer: {
-          version = "${unstableVersionMajor}-${builtins.substring 0 8 rev}";
+          version = "${unstableVersionMajor}-${lib.substring 0 8 rev}";
           src = fetchArmagetron rev hash;
           extraBuildInputs = [
             protobuf
@@ -86,7 +88,7 @@ let
             freetype
             libGL
             libGLU
-            libX11
+            libx11
             SDL2
             SDL2_image
             SDL2_mixer
@@ -97,16 +99,16 @@ let
       # https://gitlab.com/armagetronad/armagetronad/-/commits/hack-0.2.8-sty+ct+ap/?ref_type=heads
       "${latestVersionMajor}-sty+ct+ap" =
         let
-          rev = "5a17cc9fb6e1e27a358711afbd745ae54d4a8c60";
-          hash = "sha256-111C1j/hSaASGcvYy3//TyHs4Z+3fuiOvCmtcWLdFd4=";
+          rev = "b74df624eae13e919b4b04f9b18043bce9d04431";
+          hash = "sha256-tjEcgyYxaGgHiIH8y9xYM7HEpgZa7DEWIVqK8r0dmaY=";
         in
         dedicatedServer: {
-          version = "${latestVersionMajor}-sty+ct+ap-${builtins.substring 0 8 rev}";
+          version = "${latestVersionMajor}-sty+ct+ap-${lib.substring 0 8 rev}";
           src = fetchArmagetron rev hash;
           extraBuildInputs = lib.optionals (!dedicatedServer) [
             libGL
             libGLU
-            libX11
+            libx11
             libpng
             SDL
             SDL_image
@@ -127,13 +129,13 @@ let
 
       # Split the version into the major and minor parts
       versionParts = lib.splitString "-" resolvedParams.version;
-      splitVersion = lib.splitVersion (builtins.elemAt versionParts 0);
-      majorVersion = builtins.concatStringsSep "." (lib.lists.take 2 splitVersion);
+      splitVersion = lib.splitVersion (lib.elemAt versionParts 0);
+      majorVersion = lib.concatStringsSep "." (lib.lists.take 2 splitVersion);
 
       minorVersionPart =
         parts: sep: expectedSize:
-        if builtins.length parts > expectedSize then
-          sep + (builtins.concatStringsSep sep (lib.lists.drop expectedSize parts))
+        if lib.length parts > expectedSize then
+          sep + (lib.concatStringsSep sep (lib.lists.drop expectedSize parts))
         else
           "";
 
@@ -143,6 +145,8 @@ let
     stdenv.mkDerivation {
       pname = mainProgram;
       inherit (resolvedParams) version src;
+
+      postPatch = resolvedParams.postPatch or "";
 
       # Build works fine; install has a race.
       enableParallelBuilding = true;
@@ -172,8 +176,11 @@ let
       ++ lib.optional dedicatedServer "--enable-dedicated"
       ++ lib.optional (!dedicatedServer) "--enable-music";
 
-      buildInputs =
-        lib.singleton (libxml2.override { enableHttp = true; }) ++ (resolvedParams.extraBuildInputs or [ ]);
+      buildInputs = [
+        (libxml2.override { enableHttp = true; })
+        curl
+      ]
+      ++ (resolvedParams.extraBuildInputs or [ ]);
 
       nativeBuildInputs = [
         autoconf

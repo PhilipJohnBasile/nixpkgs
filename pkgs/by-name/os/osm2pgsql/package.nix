@@ -4,7 +4,7 @@
   fetchFromGitHub,
   cmake,
   expat,
-  fmt,
+  fmt_11,
   proj,
   bzip2,
   cli11,
@@ -25,13 +25,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "osm2pgsql";
-  version = "2.2.0";
+  version = "2.3.1";
 
   src = fetchFromGitHub {
     owner = "osm2pgsql-dev";
     repo = "osm2pgsql";
     rev = finalAttrs.version;
-    hash = "sha256-ZKSyMNc+EHY4QBTLtUiWiTMEcmAAbrV1xqxmvNF96f8=";
+    hash = "sha256-tvcnXsbHjke/25PKfWMANHI9K3CModTW8uxI2JxCWi4=";
   };
 
   postPatch = ''
@@ -46,7 +46,7 @@ stdenv.mkDerivation (finalAttrs: {
     bzip2
     cli11
     expat
-    fmt
+    fmt_11
     libosmium
     libpq
     nlohmann_json
@@ -57,7 +57,7 @@ stdenv.mkDerivation (finalAttrs: {
     (python3.withPackages (
       p: with p; [
         psycopg2
-        pyosmium
+        osmium
       ]
     ))
     zlib

@@ -10,7 +10,7 @@ with lib;
 let
   cfg = config.services.nginx;
   inherit (config.security.acme) certs;
-  vhostsConfigs = mapAttrsToList (vhostName: vhostConfig: vhostConfig) virtualHosts;
+  vhostsConfigs = attrValues virtualHosts;
   acmeEnabledVhosts = filter (
     vhostConfig: vhostConfig.enableACME || vhostConfig.useACMEHost != null
   ) vhostsConfigs;
@@ -126,6 +126,28 @@ let
     '') (filterAttrs (name: conf: conf.enable) cfg.proxyCachePath)
   );
 
+  # openresty bundles the lua module and resty.core; stock nginx needs them added.
+  packageBundlesLua = p: lib.getName p == "openresty";
+  luaEnv = pkgs.luajit_openresty.withPackages (
+    ps:
+    lib.optional (cfg.lua.enable && !packageBundlesLua cfg.package) ps.lua-resty-core
+    ++ cfg.lua.extraPackages ps
+  );
+  luaVersion = pkgs.luajit_openresty.luaversion;
+  # Lua modules install under lib/lua or share/lua depending on the package; ;; keeps nginx's defaults.
+  luaConfig = ''
+    lua_package_path '${
+      lib.concatMapStringsSep ";" (s: "${luaEnv}/${s}") [
+        "lib/lua/${luaVersion}/?.lua"
+        "lib/lua/${luaVersion}/?/init.lua"
+        "share/lua/${luaVersion}/?.lua"
+        "share/lua/${luaVersion}/?/init.lua"
+      ]
+    };;';
+    lua_package_cpath '${luaEnv}/lib/lua/${luaVersion}/?.so;;';
+    lua_ssl_trusted_certificate ${config.security.pki.caBundle};
+  '';
+
   toUpstreamParameter =
     key: value:
     if builtins.isBool value then lib.optionalString value key else "${key}=${toString value}";
@@ -201,13 +223,16 @@ let
             ''}
 
             ssl_protocols ${cfg.sslProtocols};
-            ${optionalString (cfg.sslCiphers != null) "ssl_ciphers ${cfg.sslCiphers};"}
-            ${optionalString (cfg.sslDhparam != null) "ssl_dhparam ${cfg.sslDhparam};"}
+            ${optionalString (cfg.sslCiphers != null)
+              "ssl_ciphers ${
+                if lib.isList cfg.sslCiphers then (lib.concatStringsSep ":" cfg.sslCiphers) else cfg.sslCiphers
+              };"
+            }
 
             ${optionalString cfg.recommendedTlsSettings ''
-              # Keep in sync with https://ssl-config.mozilla.org/#server=nginx&config=intermediate
+              # Consider https://ssl-config.mozilla.org/#server=nginx&config=intermediate as the lower bound
 
-              ssl_ecdh_curve X25519:prime256v1:secp384r1;
+              ssl_conf_command Groups "X25519MLKEM768:X25519:P-256:P-384";
               ssl_session_timeout 1d;
               ssl_session_cache shared:SSL:10m;
               # Breaks forward secrecy: https://github.com/mozilla/server-side-tls/issues/135
@@ -292,6 +317,8 @@ let
 
             server_tokens ${if cfg.serverTokens then "on" else "off"};
 
+            ${optionalString cfg.lua.enable luaConfig}
+
             ${cfg.commonHttpConfig}
 
             ${proxyCachePathConfig}
@@ -324,7 +351,7 @@ let
     mapAttrsToList (
       vhostName: vhost:
       let
-        onlySSL = vhost.onlySSL || vhost.enableSSL;
+        onlySSL = vhost.onlySSL;
         hasSSL = onlySSL || vhost.addSSL || vhost.forceSSL;
 
         # First evaluation of defaultListen based on a set of listen lines.
@@ -385,7 +412,7 @@ let
             "
             listen ${addr}${optionalString (port != null) ":${toString port}"} quic "
             + optionalString vhost.default "default_server "
-            + optionalString vhost.reuseport "reuseport "
+            + optionalString (vhost.reuseport && !(lib.hasPrefix "unix:" addr)) "reuseport "
             + optionalString (extraParameters != [ ]) (
               concatStringsSep " " (
                 let
@@ -411,7 +438,7 @@ let
           + optionalString (ssl && vhost.http2 && oldHTTP2) "http2 "
           + optionalString ssl "ssl "
           + optionalString vhost.default "default_server "
-          + optionalString vhost.reuseport "reuseport "
+          + optionalString (vhost.reuseport && !(lib.hasPrefix "unix:" addr)) "reuseport "
           + optionalString proxyProtocol "proxy_protocol "
           + optionalString (extraParameters != [ ]) (concatStringsSep " " extraParameters)
           + ";";
@@ -573,10 +600,7 @@ let
 
   mkCertOwnershipAssertion = import ../../../security/acme/mk-cert-ownership-assertion.nix lib;
 
-  oldHTTP2 = (
-    versionOlder cfg.package.version "1.25.1"
-    && !(cfg.package.pname == "angie" || cfg.package.pname == "angieQuic")
-  );
+  oldHTTP2 = (versionOlder cfg.package.version "1.25.1" && !(cfg.package.pname == "angie"));
 in
 
 {
@@ -771,14 +795,17 @@ in
         apply =
           p:
           p.override {
-            modules = lib.unique (p.modules ++ cfg.additionalModules);
+            modules = lib.unique (
+              p.modules
+              ++ cfg.additionalModules
+              ++ lib.optional (cfg.lua.enable && !packageBundlesLua p) pkgs.nginxModules.lua
+            );
           };
         description = ''
           Nginx package to use. This defaults to the stable version. Note
           that the nginx team recommends to use the mainline version which
           available in nixpkgs as `nginxMainline`.
-          Supported Nginx forks include `angie`, `openresty` and `tengine`.
-          For HTTP/3 support use `nginxQuic` or `angieQuic`.
+          Supported Nginx forks include `angie` and `openresty`.
         '';
       };
 
@@ -790,6 +817,36 @@ in
           Additional [third-party nginx modules](https://www.nginx.com/resources/wiki/modules/)
           to install. Packaged modules are available in `pkgs.nginxModules`.
         '';
+      };
+
+      lua = {
+        enable = mkEnableOption ''
+          Lua scripting in nginx via OpenResty's lua-nginx-module,
+          wiring up `lua_package_path`/`lua_package_cpath` for
+          {option}`services.nginx.lua.extraPackages`.
+
+          Use this to add Lua to a stock nginx. For the full OpenResty platform —
+          required by libraries that depend on its bundled lualib (for example
+          `lua-resty-openidc`, which needs `resty.string` and friends) — set
+          {option}`services.nginx.package` to `pkgs.openresty` instead; this option
+          then only sets up the search path and leaves OpenResty's built-in Lua
+          module in place
+        '';
+
+        extraPackages = mkOption {
+          type = types.functionTo (types.listOf types.package);
+          default = ps: [ ];
+          defaultText = literalExpression "ps: [ ]";
+          example = literalExpression ''
+            ps: with ps; [ lua-resty-openidc ]
+          '';
+          description = ''
+            Extra Lua packages to put on `lua_package_path` / `lua_package_cpath`,
+            for both stock nginx and `pkgs.openresty`. Packages are selected from
+            `pkgs.luajit_openresty.pkgs`. `lua-resty-core`, which the Lua module
+            requires to start, is added automatically.
+          '';
+        };
       };
 
       logError = mkOption {
@@ -968,24 +1025,31 @@ in
       };
 
       sslCiphers = mkOption {
-        type = types.nullOr types.str;
+        type = types.nullOr (types.either types.str (types.listOf types.str));
         # Keep in sync with https://ssl-config.mozilla.org/#server=nginx&config=intermediate
-        default = "ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384:DHE-RSA-CHACHA20-POLY1305";
-        description = "Ciphers to choose from when negotiating TLS handshakes.";
+        default = [
+          "ECDHE-ECDSA-AES128-GCM-SHA256"
+          "ECDHE-RSA-AES128-GCM-SHA256"
+          "ECDHE-ECDSA-AES256-GCM-SHA384"
+          "ECDHE-RSA-AES256-GCM-SHA384"
+          "ECDHE-ECDSA-CHACHA20-POLY1305"
+          "ECDHE-RSA-CHACHA20-POLY1305"
+        ];
+        description = ''
+          List of available cipher suites to choose from when negotiating TLS sessions.
+
+          :::{.warn}
+          This option only handles cipher suites up to TLSv1.2. Use
+          `ssl_conf_command CipherSuites` to configure TLSv1.3 cipher suites.
+          :::
+        '';
       };
 
       sslProtocols = mkOption {
         type = types.str;
         default = "TLSv1.2 TLSv1.3";
-        example = "TLSv1 TLSv1.1 TLSv1.2 TLSv1.3";
+        example = "TLSv1.3";
         description = "Allowed TLS protocol versions.";
-      };
-
-      sslDhparam = mkOption {
-        type = types.nullOr types.path;
-        default = null;
-        example = "/path/to/dhparams.pem";
-        description = "Path to DH parameters file.";
       };
 
       proxyResolveWhileRunning = mkOption {
@@ -1089,7 +1153,7 @@ in
                   example = "1:2:2";
                   description = ''
                     The levels parameter defines structure of subdirectories in cache: from
-                    1 to 3, each level accepts values 1 or 2. Сan be used any combination of
+                    1 to 3, each level accepts values 1 or 2. Can be used any combination of
                     1 and 2 in these formats: x, x:x and x:x:x.
                   '';
                 };
@@ -1287,6 +1351,13 @@ in
   };
 
   imports = [
+    (mkRemovedOptionModule [ "services" "nginx" "sslDhparam" ] ''
+      DHE cipher suites have been removed from the default nginx cipher list.
+
+      No additional configuration is required as ECDHE is used by default already.
+
+      If you wish to use Hybrid PQ key exchange, you can set services.nginx.recommendedTlsSettings = true.
+    '')
     (mkRemovedOptionModule [ "services" "nginx" "stateDir" ] ''
       The Nginx log directory has been moved to /var/log/nginx, the cache directory
       to /var/cache/nginx. The option services.nginx.stateDir has been removed.
@@ -1324,18 +1395,6 @@ in
   ];
 
   config = mkIf cfg.enable {
-    warnings =
-      let
-        deprecatedSSL =
-          name: config:
-          optional config.enableSSL ''
-            config.services.nginx.virtualHosts.<name>.enableSSL is deprecated,
-            use config.services.nginx.virtualHosts.<name>.onlySSL instead.
-          '';
-
-      in
-      flatten (mapAttrsToList deprecatedSSL virtualHosts);
-
     assertions =
       let
         hostOrAliasIsNull = l: l.root == null || l.alias == null;
@@ -1352,7 +1411,7 @@ in
             with host;
             count id [
               addSSL
-              (onlySSL || enableSSL)
+              onlySSL
               forceSSL
               rejectSSL
             ] <= 1
@@ -1383,27 +1442,6 @@ in
           message = ''
             Options services.nginx.service.virtualHosts.<name>.proxyPass and
             services.nginx.virtualHosts.<name>.uwsgiPass are mutually exclusive.
-          '';
-        }
-
-        {
-          assertion =
-            cfg.package.pname != "nginxQuic" && cfg.package.pname != "angieQuic" -> !(cfg.enableQuicBPF);
-          message = ''
-            services.nginx.enableQuicBPF requires using nginxQuic package,
-            which can be achieved by setting `services.nginx.package = pkgs.nginxQuic;` or
-            `services.nginx.package = pkgs.angieQuic;`.
-          '';
-        }
-
-        {
-          assertion =
-            cfg.package.pname != "nginxQuic" && cfg.package.pname != "angieQuic"
-            -> all (host: !host.quic) (attrValues virtualHosts);
-          message = ''
-            services.nginx.service.virtualHosts.<name>.quic requires using nginxQuic or angie packages,
-            which can be achieved by setting `services.nginx.package = pkgs.nginxQuic;` or
-            `services.nginx.package = pkgs.angieQuic;`.
           '';
         }
 
@@ -1579,7 +1617,7 @@ in
           MemoryDenyWriteExecute =
             !(
               (builtins.any (mod: (mod.allowMemoryWriteExecute or false)) cfg.package.modules)
-              || (cfg.package == pkgs.openresty)
+              || (lib.getName cfg.package == "openresty")
             );
           RestrictRealtime = true;
           RestrictSUIDSGID = true;
@@ -1653,9 +1691,7 @@ in
       )
     );
 
-    environment.etc."nginx/nginx.conf" = mkIf cfg.enableReload {
-      source = configFile;
-    };
+    environment.etc."nginx/nginx.conf".source = configFile;
 
     security.acme.certs =
       let
@@ -1716,7 +1752,13 @@ in
       rotate = 26;
       compress = true;
       delaycompress = true;
+      # Run postrotate script only once after rotation of all log files:
+      sharedscripts = true;
       postrotate = "[ ! -f /var/run/nginx/nginx.pid ] || kill -USR1 `cat /var/run/nginx/nginx.pid`";
     };
   };
+  meta.maintainers = [
+    lib.maintainers.leona
+    lib.maintainers.ma27
+  ];
 }

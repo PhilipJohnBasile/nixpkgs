@@ -48,8 +48,6 @@ stdenv.mkDerivation (finalAttrs: {
     sourceRoot=$(readlink -e "./libgcc")
   '';
 
-  hardeningDisable = [ "pie" ];
-
   preConfigure = ''
     # Drop in libiberty, as external builds are not expected
     cd "$buildRoot"
@@ -96,7 +94,7 @@ stdenv.mkDerivation (finalAttrs: {
         options.h \
         insn-constants.h \
   ''
-  + lib.optionalString stdenv.targetPlatform.isM68k ''
+  + lib.optionalString (stdenv.targetPlatform.isM68k || stdenv.targetPlatform.isSh4) ''
     sysroot-suffix.h \
   ''
   + lib.optionalString stdenv.targetPlatform.isAarch32 ''

@@ -8,7 +8,7 @@
     "universal"
     "web"
   ]
-  ++ lib.optional (stdenv.hostPlatform.isLinux && !(flutter ? engine)) "linux"
+  ++ lib.optional stdenv.hostPlatform.isLinux "linux"
   ++ lib.optional (stdenv.hostPlatform.isx86_64 || stdenv.hostPlatform.isDarwin) "android"
   ++ lib.optionals stdenv.hostPlatform.isDarwin [
     "macos"
@@ -24,7 +24,7 @@
   makeWrapper,
   writeShellScript,
   wrapGAppsHook3,
-  git,
+  gitMinimal,
   which,
   pkg-config,
   atk,
@@ -35,7 +35,7 @@
   harfbuzz,
   libepoxy,
   pango,
-  libX11,
+  libx11,
   xorgproto,
   libdeflate,
   zlib,
@@ -64,8 +64,8 @@ let
     name = "flutter-cache-dir";
     paths = builtins.attrValues flutterPlatformArtifacts;
     postBuild = ''
-      mkdir -p "$out/bin/cache"
-      ln -s '${flutter}/bin/cache/dart-sdk' "$out/bin/cache"
+      mkdir --parents "$out/bin/cache"
+      ln --symbolic '${flutter}/bin/cache/dart-sdk' "$out/bin/cache"
     '';
     passthru.flutterPlatform = flutterPlatformArtifacts;
   };
@@ -79,7 +79,7 @@ let
 
   # Tools that the Flutter tool depends on.
   tools = [
-    git
+    gitMinimal
     which
   ];
 
@@ -93,7 +93,7 @@ let
     harfbuzz
     libepoxy
     pango
-    libX11
+    libx11
     libdeflate
   ];
 
@@ -120,7 +120,7 @@ let
   # They must be manually included.
   appStaticBuildDeps =
     (lib.optionals supportsLinuxDesktopTarget [
-      libX11
+      libx11
       xorgproto
       zlib
     ])
@@ -146,6 +146,9 @@ in
   stdenv.mkDerivation {
     pname = "flutter-wrapped";
     inherit (flutter) version;
+
+    strictDeps = true;
+    __structuredAttrs = true;
 
     nativeBuildInputs = [
       makeWrapper
@@ -184,15 +187,9 @@ in
         addToSearchPath FLUTTER_PKG_CONFIG_PATH "$path"
       done
 
-      mkdir -p $out/bin
+      mkdir --parents $out/bin
       makeWrapper '${immutableFlutter}' $out/bin/flutter \
         --set-default ANDROID_EMULATOR_USE_SYSTEM_LIBS 1 \
-    ''
-    + lib.optionalString (flutter ? engine && flutter.engine.meta.available) ''
-      --set-default FLUTTER_ENGINE "${flutter.engine}" \
-      --add-flags "--local-engine-host ${flutter.engine.outName}" \
-    ''
-    + ''
         --suffix PATH : '${lib.makeBinPath (tools ++ buildTools)}' \
         --suffix PKG_CONFIG_PATH : "$FLUTTER_PKG_CONFIG_PATH" \
         --suffix LIBRARY_PATH : '${lib.makeLibraryPath appStaticBuildDeps}' \

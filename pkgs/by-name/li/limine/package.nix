@@ -22,6 +22,13 @@ let
     || (if targets == [ ] then stdenv.hostPlatform.isx86_64 else (builtins.elem "x86_64" targets))
     || enableAll;
 
+  missingZerocallusedregs =
+    (
+      if targets == [ ] then stdenv.hostPlatform.isLoongArch64 else (builtins.elem "loongarch64" targets)
+    )
+    || (if targets == [ ] then stdenv.hostPlatform.isRiscV64 else (builtins.elem "riscv64" targets))
+    || enableAll;
+
   biosSupport' = biosSupport && hasX86;
   pxeSupport' = pxeSupport && hasX86;
 
@@ -40,17 +47,21 @@ in
 # as bootloader for various platforms and corresponding binary and helper files.
 stdenv.mkDerivation (finalAttrs: {
   pname = "limine";
-  version = "10.1.1";
+  version = "12.5.2";
 
   # We don't use the Git source but the release tarball, as the source has a
   # `./bootstrap` script performing network access to download resources.
   # Packaging that in Nix is very cumbersome.
   src = fetchurl {
-    url = "https://codeberg.org/Limine/Limine/releases/download/v${finalAttrs.version}/limine-${finalAttrs.version}.tar.gz";
-    hash = "sha256-pDhA8N7a5cTorIW8OgCimOxxfZ2slUhp3K+cb8KIAzc=";
+    url = "https://github.com/Limine-Bootloader/Limine/releases/download/v${finalAttrs.version}/limine-${finalAttrs.version}.tar.gz";
+    hash = "sha256-F4B4EzbWkMVR/FMFYEtMPj10mfbOvFBL+gzaO3EiE8E=";
   };
 
   enableParallelBuilding = true;
+
+  hardeningDisable = lib.optionals missingZerocallusedregs [
+    "zerocallusedregs"
+  ];
 
   nativeBuildInputs = [
     llvmPackages.libllvm
@@ -82,7 +93,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   meta = {
     homepage = "https://limine-bootloader.org/";
-    changelog = "https://codeberg.org/Limine/Limine/raw/tag/v${finalAttrs.version}/ChangeLog";
+    changelog = "https://github.com/Limine-Bootloader/Limine/raw/refs/tags/v${finalAttrs.version}/ChangeLog";
     description = "Limine Bootloader";
     mainProgram = "limine";
     # The platforms on that the Limine binary and helper tools can run, not
@@ -92,21 +103,19 @@ stdenv.mkDerivation (finalAttrs: {
     # Caution. Some submodules have different licenses.
     license = with lib.licenses; [
       asl20 # cc-runtime
-      bsd0 # freestanding-headers, freestanding-toolchain
+      bsd0 # freestanding-headers, freestanding-toolchain, limine-protocol, pdgzip
       bsd2 # limine, flanterm, libfdt, PicoEFI
       bsd2Patent # PicoEFI
       bsd3 # PicoEFI
       bsdAxisNoDisclaimerUnmodified # PicoEFI
       mit # PicoEFI, stb_image
-      zlib # tinf
     ];
     maintainers = with lib.maintainers; [
       johnrtitor
       lzcunt
-      phip1611
       prince213
       programmerlexi
-      surfaceflinger
+      ryand56
     ];
   };
 })

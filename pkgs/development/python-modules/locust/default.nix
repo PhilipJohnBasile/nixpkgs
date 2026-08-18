@@ -18,6 +18,7 @@
   locust-cloud,
   psutil,
   pyquery,
+  pytest,
   pyzmq,
   requests,
   retry,
@@ -27,14 +28,14 @@
 
 buildPythonPackage rec {
   pname = "locust";
-  version = "2.37.14";
+  version = "2.46.3";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "locustio";
     repo = "locust";
     tag = version;
-    hash = "sha256-16pMl72OIZlAi6jNx0qv0TO9RTm6O9CgiE84sndsEhc=";
+    hash = "sha256-Diz5fGcX8hXQSuNT20LUcjKJZEYNvN+6myrGi5F4Hss=";
   };
 
   postPatch = ''
@@ -65,6 +66,7 @@ buildPythonPackage rec {
     "flask-login"
     # version 6.0.1 is listed as 0.0.1 in the dependency check and 0.0.1 is not >= 3.0.10
     "flask-cors"
+    "requests"
   ];
 
   dependencies = [
@@ -81,6 +83,7 @@ buildPythonPackage rec {
     requests
     tomli
     werkzeug
+    pytest
   ];
 
   pythonImportsCheck = [ "locust" ];

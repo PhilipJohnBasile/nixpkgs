@@ -2,39 +2,39 @@
   buildGoModule,
   fetchFromGitHub,
   lib,
-  libXi,
-  libXrandr,
-  libXt,
-  libXtst,
+  libxi,
+  libxrandr,
+  libxt,
+  libxtst,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "remote-touchpad";
-  version = "1.5.2";
+  version = "1.5.4";
 
   src = fetchFromGitHub {
     owner = "unrud";
     repo = "remote-touchpad";
-    rev = "v${version}";
-    sha256 = "sha256-mIPBUREv2uIiIiucPyKLBmf8OJPVPsbc8QI9v3NTBIQ=";
+    rev = "v${finalAttrs.version}";
+    sha256 = "sha256-Erflr02yv6RT6vF9/WKMO7h0lEr2NMPinK7bj/SPMvI=";
   };
 
   buildInputs = [
-    libXi
-    libXrandr
-    libXt
-    libXtst
+    libxi
+    libxrandr
+    libxt
+    libxtst
   ];
   tags = [ "portal,x11" ];
 
-  vendorHash = "sha256-d2kKF13ESntZ0pRTYs5eFpkCTuOhei/bTyTmdYWvvRY=";
+  vendorHash = "sha256-9e8mfGpR7HtpB+Fca69pKQH52FZciOnpsD/bi1JW4q0=";
 
-  meta = with lib; {
+  meta = {
     description = "Control mouse and keyboard from the web browser of a smartphone";
     mainProgram = "remote-touchpad";
     homepage = "https://github.com/unrud/remote-touchpad";
-    license = licenses.gpl3Plus;
-    maintainers = with maintainers; [ schnusch ];
-    platforms = platforms.linux;
+    license = lib.licenses.gpl3Plus;
+    maintainers = with lib.maintainers; [ schnusch ];
+    platforms = lib.platforms.linux;
   };
-}
+})

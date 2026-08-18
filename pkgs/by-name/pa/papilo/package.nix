@@ -9,13 +9,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "papilo";
-  version = "2.4.3";
+  version = "3.0.1";
 
   src = fetchFromGitHub {
     owner = "scipopt";
     repo = "papilo";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-SsRAwidqvisoDODBLRatVWFw7wGeLUavmPXSlPmD7d8=";
+    hash = "sha256-YDaahgsE7NqTNE1WvkSp5DwyvfJrP19IcytTkM8VKZo=";
   };
 
   # skip SEGFAULT tests
@@ -38,7 +38,6 @@ stdenv.mkDerivation (finalAttrs: {
 
   buildInputs = [
     boost
-    cmake
     onetbb
   ];
 
@@ -51,9 +50,9 @@ stdenv.mkDerivation (finalAttrs: {
   meta = {
     homepage = "https://scipopt.org/";
     description = "Parallel Presolve for Integer and Linear Optimization";
-    license = with lib.licenses; [ lgpl3Plus ];
+    license = lib.licenses.lgpl3Plus;
     mainProgram = "papilo";
-    maintainers = with lib.maintainers; [ david-r-cox ];
+    maintainers = [ ];
     platforms = lib.platforms.unix;
   };
 })

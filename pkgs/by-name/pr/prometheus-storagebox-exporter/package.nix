@@ -4,26 +4,27 @@
   fetchFromGitHub,
 }:
 
-buildGoModule {
+buildGoModule (finalAttrs: {
   pname = "prometheus-storagebox-exporter";
-  version = "0-unstable-2025-07-28";
+  version = "1.1.0";
 
   src = fetchFromGitHub {
     owner = "fleaz";
     repo = "prometheus-storagebox-exporter";
-    hash = "sha256-HGUAvoLIVXwZT/CJ1yj9H6ClNRwiJ8rjjluAQ6GdBME=";
-    rev = "e03cfd5f60f7847b74de2f6f47690bc03b7c157a";
+    hash = "sha256-eHS0/nrfl6pnB4GjbHAaQKUOHJYGy+a56N+/WNDht6Q=";
+    tag = "v${finalAttrs.version}";
   };
 
-  vendorHash = "sha256-w2S8LWQyDLnUba7+YnTk7GhRXR/agbF5GFIeOPk8w64=";
+  vendorHash = "sha256-NlTAmurQz7c+Gor0ExQoXUxAzcuCnk0ra3J4bojoFeU=";
 
   meta = {
     description = "Prometheus exporter for Hetzner storage boxes";
-    homepage = "https://github.com/fleaz/prometheus-storage-exporter";
+    homepage = "https://github.com/fleaz/prometheus-storagebox-exporter";
     license = lib.licenses.mit;
     mainProgram = "prometheus-storagebox-exporter";
     maintainers = with lib.maintainers; [
       erethon
+      fleaz
     ];
   };
-}
+})

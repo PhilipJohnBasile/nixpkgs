@@ -31,7 +31,7 @@ assert gpgmeSupport -> sslSupport;
 
 stdenv.mkDerivation rec {
   pname = "mutt";
-  version = "2.2.15";
+  version = "2.4.1";
   outputs = [
     "out"
     "doc"
@@ -40,7 +40,7 @@ stdenv.mkDerivation rec {
 
   src = fetchurl {
     url = "http://ftp.mutt.org/pub/mutt/${pname}-${version}.tar.gz";
-    hash = "sha256-pRaGEE5CA/TCo7F2UnvjuV0I6AjpT9LcrbfDBWa/iU0=";
+    hash = "sha256-ViQyHwscwe/2yrnvCPJZVP9kxRsz1L87mUhM8e3Yz/8=";
   };
 
   patches = [
@@ -115,23 +115,23 @@ stdenv.mkDerivation rec {
   passthru = {
     updateScript = writeScript "update-mutt" ''
       #!/usr/bin/env nix-shell
-      #!nix-shell -i bash -p curl pcre common-updater-scripts
+      #!nix-shell -i bash -p curl pcre2 common-updater-scripts
 
       set -euo pipefail
 
       # Expect the text in format of "The current stable public release version is 2.2.6."
       new_version="$(curl -s http://www.mutt.org/download.html |
-          pcregrep -o1 'The current stable public release version is ([0-9.]+).')"
+          pcre2grep -o1 'The current stable public release version is ([0-9.]+).')"
       update-source-version ${pname} "$new_version"
     '';
   };
 
-  meta = with lib; {
+  meta = {
     description = "Small but very powerful text-based mail client";
     homepage = "http://www.mutt.org";
     mainProgram = "mutt";
-    license = licenses.gpl2Plus;
-    platforms = platforms.unix;
-    maintainers = with maintainers; [ rnhmjoj ];
+    license = lib.licenses.gpl2Plus;
+    platforms = lib.platforms.unix;
+    maintainers = with lib.maintainers; [ rnhmjoj ];
   };
 }

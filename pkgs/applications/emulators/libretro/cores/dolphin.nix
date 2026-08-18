@@ -3,27 +3,31 @@
   fetchFromGitHub,
   cmake,
   curl,
-  gettext,
-  hidapi,
+  glslang,
+  libevdev,
   libGL,
   libGLU,
-  libevdev,
+  libx11,
+  libxcb,
+  libxcb-util,
+  libxext,
+  libxi,
+  libxinerama,
+  libxrandr,
   mkLibretroCore,
-  pcre,
   pkg-config,
-  sfml,
   udev,
-  xorg,
 }:
 mkLibretroCore {
   core = "dolphin";
-  version = "0-unstable-2025-08-05";
+  version = "0-unstable-2026-08-02";
 
   src = fetchFromGitHub {
     owner = "libretro";
     repo = "dolphin";
-    rev = "83438f9b1a2c832319876a1fda130a5e33d4ef87";
-    hash = "sha256-q4y+3uJ1tQ2OvlEvi/JNyIO/RfuWNIEKfVZ6xEWKFCg=";
+    rev = "49d36c0a08a9f7c0798f71bc8bc43f5d122f7552";
+    hash = "sha256-b/hTu1amuKCau/QmBwyDjQQ83lTvQmr70rn/9uce2N0=";
+    fetchSubmodules = true;
   };
 
   extraNativeBuildInputs = [
@@ -31,25 +35,20 @@ mkLibretroCore {
     curl
     pkg-config
   ];
+
   extraBuildInputs = [
-    gettext
-    hidapi
+    glslang
     libGL
     libGLU
     libevdev
-    pcre
-    sfml
+    libx11
+    libxcb
+    libxcb-util
+    libxext
+    libxi
+    libxinerama
+    libxrandr
     udev
-    xorg.libSM
-    xorg.libX11
-    xorg.libXext
-    xorg.libXi
-    xorg.libXinerama
-    xorg.libXrandr
-    xorg.libXxf86vm
-    xorg.libpthreadstubs
-    xorg.libxcb
-    xorg.xcbutil
   ];
 
   makefile = "Makefile";
@@ -72,8 +71,6 @@ mkLibretroCore {
     # > Or, add -DCMAKE_POLICY_VERSION_MINIMUM=3.5 to try configuring anyway.
     (cmakeFeature "CMAKE_POLICY_VERSION_MINIMUM" "3.5")
   ];
-
-  dontUseCmakeBuildDir = true;
 
   meta = {
     description = "Port of Dolphin to libretro";

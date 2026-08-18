@@ -8,8 +8,7 @@
 
 let
   pname = "postman";
-  version = "11.67.0";
-
+  version = "12.20.1";
   src =
     let
       selectSystem =
@@ -19,7 +18,6 @@ let
       system = selectSystem {
         aarch64-darwin = "osx_arm64";
         aarch64-linux = "linuxarm64";
-        x86_64-darwin = "osx_64";
         x86_64-linux = "linux64";
       };
     in
@@ -27,10 +25,9 @@ let
       name = "postman-${version}.${if stdenvNoCC.hostPlatform.isLinux then "tar.gz" else "zip"}";
       url = "https://dl.pstmn.io/download/version/${version}/${system}";
       hash = selectSystem {
-        aarch64-darwin = "sha256-WDXYSHhwvNo4IifeuYOZmF7KX/5ZArPXtoBe30bmGIg=";
-        aarch64-linux = "sha256-7rtKBx5axftXEXmps1mUPIKPypFUVwhSGA/yJstVU2I=";
-        x86_64-darwin = "sha256-7cm9u0zdvEBfjId6Xp0i4X2E/dtAZ0HeI3y0guzyMp4=";
-        x86_64-linux = "sha256-xg9d1E3S6yR3BOMLb5OXmMfZj5e+GmW9p1FFMBj/5mI=";
+        aarch64-darwin = "sha256-OmZDcsLxDzFg6k+6LKKGGL2wKXFw2Ak7ftoGcQ60osA=";
+        aarch64-linux = "sha256-0nLRlduJH4uygVIk98GH6PHY+NO0Hi21ES/6lxQxOsI=";
+        x86_64-linux = "sha256-azqnz3sTdxzDrycYAtpmgLxadEmHD2yrY0GufbcjbL8=";
       };
     };
 
@@ -43,9 +40,9 @@ let
       exit 0
     fi
     update-source-version postman $latestVersion
-    systems=$(nix eval --json -f . postman.meta.platforms | jq --raw-output '.[]')
+    systems=$(nix --extra-experimental-features nix-command eval --json -f . postman.meta.platforms | jq --raw-output '.[]')
     for system in $systems; do
-      hash=$(nix --extra-experimental-features nix-command hash convert --to sri --hash-algo sha256 $(nix-prefetch-url $(nix eval --raw -f . postman.src.url --system "$system")))
+      hash=$(nix --extra-experimental-features nix-command hash convert --to sri --hash-algo sha256 $(nix-prefetch-url $(nix --extra-experimental-features nix-command eval --raw -f . postman.src.url --system "$system")))
       update-source-version postman $latestVersion $hash --system=$system --ignore-same-version --ignore-same-hash
     done
   '';
@@ -61,15 +58,15 @@ let
       Crafter
       evanjs
       johnrichardrinehart
-      tricktron
+      yvnth
     ];
     platforms = [
       "aarch64-darwin"
       "aarch64-linux"
-      "x86_64-darwin"
       "x86_64-linux"
     ];
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
+    mainProgram = "postman";
   };
 in
 

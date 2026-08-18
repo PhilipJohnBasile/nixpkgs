@@ -24,7 +24,7 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "wangle";
-  version = "2025.09.15.00";
+  version = "2026.07.27.00";
 
   outputs = [
     "out"
@@ -35,12 +35,8 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "facebook";
     repo = "wangle";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-S2L3ifQTwyidz3x5pPrVEGEJXvM1czqTRXYsYUqIeRY=";
+    hash = "sha256-BGl1LGaYRmYdG4h98HhAT7X4tXEMjlzh27nGLCY/B1c=";
   };
-
-  patches = [
-    ./glog-0.7.patch
-  ];
 
   nativeBuildInputs = [
     cmake
@@ -109,6 +105,7 @@ stdenv.mkDerivation (finalAttrs: {
       kylesferrazza
       emily
       techknowlogick
+      lf-
     ];
   };
 })

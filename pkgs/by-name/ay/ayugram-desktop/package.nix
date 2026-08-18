@@ -1,6 +1,5 @@
 {
   lib,
-  stdenv,
   fetchFromGitHub,
   nix-update-script,
   telegram-desktop,
@@ -13,13 +12,16 @@ telegram-desktop.override {
   unwrapped = telegram-desktop.unwrapped.overrideAttrs (
     finalAttrs: previousAttrs: {
       pname = "ayugram-desktop-unwrapped";
-      version = "5.16.3";
+      version = "7.0.9";
 
       src = fetchFromGitHub {
         owner = "AyuGram";
         repo = "AyuGramDesktop";
-        rev = "aafdac6da465e6498e39e1b55566fc8fe2402843";
-        hash = "sha256-GNFkGw/CxtbeoEMBjExNudBcKFwlfXee5VVnXa4wGko=";
+        # tag = "v${finalAttrs.version}";
+        # v7.0.9 tag contains a codegen bug due to an outdated submodule
+        # https://github.com/AyuGram/codegen/pull/3
+        rev = "db3b9891cb0b04ebb7d8c0e71ada3bcc669b910a";
+        hash = "sha256-JSx6qPpVul3NX8stNZzZX/ckNBQ3uXZP7lofb6eWauM=";
         fetchSubmodules = true;
       };
 

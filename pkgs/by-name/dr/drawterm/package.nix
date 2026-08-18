@@ -5,8 +5,8 @@
   unstableGitUpdater,
   installShellFiles,
   makeWrapper,
-  apple-sdk_13,
-  xorg,
+  libxt,
+  libx11,
   pkg-config,
   wayland-scanner,
   pipewire,
@@ -14,6 +14,7 @@
   wayland-protocols,
   libxkbcommon,
   libdecor,
+  llvmPackages,
   pulseaudio,
   nixosTests,
   withWayland ? false,
@@ -23,13 +24,13 @@ let
 in
 stdenv.mkDerivation {
   pname = "drawterm";
-  version = "0-unstable-2025-09-11";
+  version = "0-unstable-2026-07-18";
 
   src = fetchFrom9Front {
     owner = "plan9front";
     repo = "drawterm";
-    rev = "7523180ec9e5210e28eb0191268066188cdf91ab";
-    hash = "sha256-IOZCpNXJcTpqCRsNp8aaP2vORvusLktLtyoQ7gykJB8=";
+    rev = "4c336be61aa3d844ec2fdaa317f1d77d30eb876f";
+    hash = "sha256-KFjLVyEEFSnYeKifp1YnoxWPlySSLicnhC703T0zmxA=";
   };
 
   enableParallelBuilding = true;
@@ -37,6 +38,9 @@ stdenv.mkDerivation {
   nativeBuildInputs = [
     installShellFiles
     makeWrapper
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    llvmPackages.lld
   ]
   ++ lib.optionals withWayland [
     pkg-config
@@ -52,11 +56,11 @@ stdenv.mkDerivation {
       libdecor
     ]
     ++ lib.optionals withXorg [
-      xorg.libX11
-      xorg.libXt
-    ]
-    ++ lib.optional stdenv.hostPlatform.isDarwin apple-sdk_13;
+      libx11
+      libxt
+    ];
 
+  env.NIX_CFLAGS_LINK = lib.optionalString stdenv.hostPlatform.isDarwin "-fuse-ld=lld";
   makeFlags =
     lib.optional withWayland "CONF=linux"
     ++ lib.optional (!(withWayland || stdenv.hostPlatform.isDarwin)) "CONF=unix"
@@ -66,6 +70,7 @@ stdenv.mkDerivation {
     ];
 
   installPhase = ''
+    runHook preInstall
     installManPage drawterm.1
   ''
   + lib.optionalString withWayland ''
@@ -75,13 +80,16 @@ stdenv.mkDerivation {
     # wrapping the oss output with pulse seems to be the easiest
     mv drawterm drawterm.bin
     install -Dm755 -t $out/bin/ drawterm.bin
-    makeWrapper ${pulseaudio}/bin/padsp $out/bin/drawterm --add-flags $out/bin/drawterm.bin
+    makeWrapper ${lib.getExe' pulseaudio "padsp"} $out/bin/drawterm --add-flags $out/bin/drawterm.bin
   ''
   + lib.optionalString stdenv.hostPlatform.isDarwin ''
     mkdir -p $out/{Applications,bin}
     mv gui-cocoa/drawterm.app $out/Applications/
     mv drawterm $out/Applications/drawterm.app/
     ln -s $out/Applications/drawterm.app/drawterm $out/bin/
+  ''
+  + ''
+    runHook postInstall
   '';
 
   passthru = {

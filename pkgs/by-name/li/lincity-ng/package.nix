@@ -1,22 +1,19 @@
 {
   stdenv,
-  SDL2,
-  SDL2_gfx,
-  SDL2_image,
-  SDL2_mixer,
-  SDL2_ttf,
+  sdl3,
+  sdl3-image,
+  sdl3-mixer,
+  sdl3-ttf,
   cmake,
   fetchFromGitHub,
+  fmt,
   lib,
-  libGL,
-  libGLU,
   libwebp,
   libtiff,
-  libX11,
+  libx11,
   libxml2,
   libxmlxx5,
   libxslt,
-  physfs_2,
   pkg-config,
   xorgproto,
   zlib,
@@ -24,23 +21,20 @@
   include-what-you-use,
 }:
 
-let
-  # https://github.com/lincity-ng/lincity-ng/issues/25
-  physfs = physfs_2;
-in
-
 stdenv.mkDerivation (finalAttrs: {
   pname = "lincity-ng";
-  version = "2.13.1";
+  version = "2.15.0";
 
   src = fetchFromGitHub {
     owner = "lincity-ng";
     repo = "lincity-ng";
     tag = "lincity-ng-${finalAttrs.version}";
-    hash = "sha256-ACJVhMq2IEJNrbAdmkgHxQV0uKSXpwR8a/5jcrQS+oI=";
+    hash = "sha256-NgOMbFsK/8njP3hOT9N9E9TRipSW+7CAw1oVDW1F5QU=";
   };
 
   hardeningDisable = [ "format" ];
+
+  strictDeps = true;
 
   nativeBuildInputs = [
     cmake
@@ -48,23 +42,21 @@ stdenv.mkDerivation (finalAttrs: {
     gettext
     include-what-you-use
     libxml2
+    libxslt
   ];
 
   buildInputs = [
-    SDL2
-    SDL2_gfx
-    SDL2_image
-    SDL2_mixer
-    SDL2_ttf
-    libGL
-    libGLU
-    libX11
+    fmt
+    sdl3
+    sdl3-image
+    sdl3-mixer
+    sdl3-ttf
+    libx11
     libwebp
     libtiff
     libxmlxx5
     libxml2
     libxslt
-    physfs
     xorgproto
     zlib
   ];
@@ -76,11 +68,12 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   env.NIX_CFLAGS_COMPILE = "
-    -I${lib.getDev SDL2_image}/include/SDL2
-    -I${lib.getDev SDL2_mixer}/include/SDL2
+    -I${lib.getDev sdl3-image}/include/SDL3
+    -I${lib.getDev sdl3-mixer}/include/SDL3
   ";
 
   meta = {
+    homepage = "https://github.com/lincity-ng/lincity-ng";
     description = "City building game";
     mainProgram = "lincity-ng";
     license = lib.licenses.gpl2Plus;

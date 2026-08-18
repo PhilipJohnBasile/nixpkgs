@@ -5,9 +5,9 @@
   ffmpeg,
 }:
 
-python3Packages.buildPythonApplication rec {
+python3Packages.buildPythonApplication (finalAttrs: {
   pname = "yutto";
-  version = "2.1.0";
+  version = "2.2.0";
   pyproject = true;
 
   pythonRelaxDeps = true;
@@ -15,8 +15,8 @@ python3Packages.buildPythonApplication rec {
   src = fetchFromGitHub {
     owner = "yutto-dev";
     repo = "yutto";
-    tag = "v${version}";
-    hash = "sha256-A9LM+hdev9/vH4HV2DUhpiA2XqvXYxtSUt2dyUnZwsU=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-5p0/a7cwmXqQVQP90cgwWHFpFaT+YDGDFbN+EGH89CA=";
   };
 
   build-system = with python3Packages; [ uv-build ];
@@ -31,6 +31,7 @@ python3Packages.buildPythonApplication rec {
       typing-extensions
       pydantic
       returns
+      segno
     ]
     ++ (with httpx.optional-dependencies; http2 ++ socks);
 
@@ -38,13 +39,17 @@ python3Packages.buildPythonApplication rec {
     makeWrapperArgs+=(--prefix PATH : ${lib.makeBinPath [ ffmpeg ]})
   '';
 
+  postPatch = ''
+    sed -ie 's/requires = \["uv_build[^"]*"]/requires = ["uv_build"]/' pyproject.toml
+  '';
+
   pythonImportsCheck = [ "yutto" ];
 
-  meta = with lib; {
+  meta = {
     description = "Bilibili downloader";
     homepage = "https://github.com/yutto-dev/yutto";
-    license = licenses.gpl3Only;
-    maintainers = with maintainers; [ linsui ];
+    license = lib.licenses.gpl3Only;
+    maintainers = with lib.maintainers; [ linsui ];
     mainProgram = "yutto";
   };
-}
+})

@@ -1,16 +1,23 @@
-{
+args@{
   lib,
   stdenv,
   fetchFromGitHub,
-  fetchpatch,
   cmake,
+  hwloc, # Purposefully shadowed below
   ninja,
+  pkg-config,
   ctestCheckHook,
 }:
-
+let
+  # The behavior of OneTBB does not change if it is built with hwloc with support for CUDA.
+  # However, the derivation *does* change, causing rebuilds of packages like Nix.
+  # To avoid these pointless rebuilds, we make sure to always use a version of hwloc with CUDA
+  # support disabled.
+  hwloc = args.hwloc.override { enableCuda = false; };
+in
 stdenv.mkDerivation (finalAttrs: {
   pname = "onetbb";
-  version = "2022.2.0";
+  version = "2022.3.0";
 
   outputs = [
     "out"
@@ -18,10 +25,10 @@ stdenv.mkDerivation (finalAttrs: {
   ];
 
   src = fetchFromGitHub {
-    owner = "oneapi-src";
+    owner = "uxlfoundation";
     repo = "oneTBB";
     tag = "v${finalAttrs.version}";
-    hash = "sha256-ASQPAGm5e4q7imvTVWlmj5ON4fGEao1L5m2C5wF7EhI=";
+    hash = "sha256-HIHF6KHlEI4rgQ9Epe0+DmNe1y95K9iYa4V/wFnJfEU=";
   };
 
   patches = [
@@ -37,27 +44,20 @@ stdenv.mkDerivation (finalAttrs: {
     #
     # <https://github.com/uxlfoundation/oneTBB/pull/1849>
     ./fix-libtbbmalloc-dlopen.patch
-
-    # Only enable fcf-protection on x86 based processors
-    # <https://github.com/uxlfoundation/oneTBB/pull/1768>
-    # <https://github.com/uxlfoundation/oneTBB/pull/1792>
-    (fetchpatch {
-      url = "https://github.com/uxlfoundation/oneTBB/commit/65d46656f56200a7e89168824c4dbe4943421ff9.patch?full_index=1";
-      hash = "sha256-hhHDuvUsWSqs7AJ5smDYUP1yYZmjV2VISBeKHcFAfG4=";
-    })
-    (fetchpatch {
-      url = "https://github.com/uxlfoundation/oneTBB/commit/e57411968661ab1205322ba1c84fc1cd90a306c6.patch";
-      hash = "sha256-PFixW4lYqA5oy4LSwewvxgJbjVKJceRHnp8mgW9zBF0=";
-    })
   ];
 
   nativeBuildInputs = [
     cmake
     ninja
     ctestCheckHook
+    pkg-config
   ];
 
-  doCheck = true;
+  buildInputs = [
+    hwloc
+  ];
+
+  doCheck = !stdenv.hostPlatform.isStatic;
 
   dontUseNinjaCheck = true;
 
@@ -74,15 +74,27 @@ stdenv.mkDerivation (finalAttrs: {
       --replace-fail 'tbb_add_test(SUBDIR conformance NAME conformance_resumable_tasks DEPENDENCIES TBB::tbb)' ""
   '';
 
-  env = {
-    # Fix build with modern gcc
-    # In member function 'void std::__atomic_base<_IntTp>::store(__int_type, std::memory_order) [with _ITp = bool]',
-    NIX_CFLAGS_COMPILE = lib.optionalString stdenv.cc.isGNU "-Wno-error=stringop-overflow";
+  cmakeFlags = [
+    (lib.cmakeBool "TBB_DISABLE_HWLOC_AUTOMATIC_SEARCH" false)
+    # Treating compiler errors as warnings creates churn each compiler update,
+    # and provides little utility to us downstream.
+    (lib.cmakeBool "TBB_STRICT" false)
+    (lib.cmakeBool "TBB_TEST" finalAttrs.finalPackage.doCheck)
+  ]
+  ++ lib.optionals stdenv.hostPlatform.isDarwin [
+    (lib.cmakeFeature "CMAKE_INSTALL_NAME_DIR" "${placeholder "out"}/lib")
+  ];
 
+  env = {
     # Fix undefined reference errors with version script under LLVM.
     NIX_LDFLAGS = lib.optionalString (
       stdenv.cc.bintools.isLLVM && lib.versionAtLeast stdenv.cc.bintools.version "17"
     ) "--undefined-version";
+
+    # Some test fail because hwloc tries to read /sys on non-x86, which doesn't
+    # work in the build sandbox, so provide fake data to satisfy it
+    # See: https://www-lb.open-mpi.org/projects/hwloc/doc/v2.12.2/synthetic.html
+    HWLOC_SYNTHETIC = "node:1 core:1 pu:1";
   };
 
   meta = {
@@ -95,7 +107,11 @@ stdenv.mkDerivation (finalAttrs: {
       template-based runtime library can help you harness the latent
       performance of multi-core processors.
     '';
-    platforms = lib.platforms.all;
+    platforms = lib.subtractLists lib.platforms.cygwin lib.platforms.all;
+    # oneTBB does not support static builds
+    # "You are building oneTBB as a static library. This is highly discouraged and such configuration is not supported. Consider building a dynamic library to avoid unforeseen issues."
+    # https://github.com/uxlfoundation/oneTBB/blob/db7891a246cafbb90719c3dee497d96889ca692b/CMakeLists.txt#L160
+    badPlatforms = [ lib.systems.inspect.platformPatterns.isStatic ];
     maintainers = with lib.maintainers; [
       silvanshade
       thoughtpolice

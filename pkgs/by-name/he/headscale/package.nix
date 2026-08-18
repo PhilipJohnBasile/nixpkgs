@@ -9,26 +9,26 @@
   postgresql,
   stdenv,
 }:
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "headscale";
-  version = "0.26.1";
+  version = "0.29.3";
 
   src = fetchFromGitHub {
     owner = "juanfont";
     repo = "headscale";
-    tag = "v${version}";
-    hash = "sha256-LnS6K3U4RgRRV4i92zcRZtLJF1QdbORQP9ZIis9u6rk=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-ddJHSEqZd++JeG3UjUwzw7i45FlZYggUwhEG/tDkq0s=";
   };
 
-  vendorHash = "sha256-dR8xmUIDMIy08lhm7r95GNNMAbXv4qSH3v9HR40HlNk=";
+  postPatch = ''
+    substituteInPlace hscontrol/types/version.go \
+      --replace-fail 'Version:   "dev"' 'Version: "${finalAttrs.version}"' \
+      --replace-fail 'Commit:    "unknown"' 'Commit: "${finalAttrs.src.tag}"'
+  '';
+
+  vendorHash = "sha256-fzKyXNMw/2yAEhaTZu0n1NXatPO2IP0HFA2ey1vZIYM=";
 
   subPackages = [ "cmd/headscale" ];
-
-  ldflags = [
-    "-s"
-    "-w"
-    "-X github.com/juanfont/headscale/cmd/headscale/cli.Version=v${version}"
-  ];
 
   nativeBuildInputs = [ installShellFiles ];
 
@@ -52,7 +52,7 @@ buildGoModule rec {
 
   passthru.tests = { inherit (nixosTests) headscale; };
 
-  meta = with lib; {
+  meta = {
     homepage = "https://github.com/juanfont/headscale";
     description = "Open source, self-hosted implementation of the Tailscale control server";
     longDescription = ''
@@ -71,11 +71,12 @@ buildGoModule rec {
 
       Headscale implements this coordination server.
     '';
-    license = licenses.bsd3;
+    license = lib.licenses.bsd3;
     mainProgram = "headscale";
-    maintainers = with maintainers; [
+    maintainers = with lib.maintainers; [
       kradalby
       misterio77
+      debtquity
     ];
   };
-}
+})

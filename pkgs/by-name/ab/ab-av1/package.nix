@@ -6,18 +6,18 @@
   stdenv,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "ab-av1";
-  version = "0.10.1";
+  version = "0.11.6";
 
   src = fetchFromGitHub {
     owner = "alexheretic";
     repo = "ab-av1";
-    tag = "v${version}";
-    hash = "sha256-uW5BXUNzk94bqSWQSaCiuSO8Angwt0eo4ZmvGRr/4S8=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-PDLvDH6a1/ci5flcyRsYyUEOc+ZxG4Xg8ItzDgEWoa0=";
   };
 
-  cargoHash = "sha256-oLmE+xkatgIDIu6mUJ49O9s6ULp0bvpWdBP8rEGb5yc=";
+  cargoHash = "sha256-yFGuiEYZA4ogBPAzi590R/PHU4hd2LzwOMPh/qtnvGY=";
 
   nativeBuildInputs = [ installShellFiles ];
 
@@ -31,9 +31,9 @@ rustPlatform.buildRustPackage rec {
   meta = {
     description = "AV1 re-encoding using ffmpeg, svt-av1 & vmaf";
     homepage = "https://github.com/alexheretic/ab-av1";
-    changelog = "https://github.com/alexheretic/ab-av1/blob/${src.rev}/CHANGELOG.md";
+    changelog = "https://github.com/alexheretic/ab-av1/blob/${finalAttrs.src.rev}/CHANGELOG.md";
     license = lib.licenses.mit;
     maintainers = [ ];
     mainProgram = "ab-av1";
   };
-}
+})

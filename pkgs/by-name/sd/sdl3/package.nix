@@ -3,9 +3,7 @@
   stdenv,
   config,
   alsa-lib,
-  apple-sdk_11,
   cmake,
-  darwinMinVersionHook,
   dbus,
   fetchFromGitHub,
   ibusMinimal,
@@ -19,6 +17,15 @@
   libusb1,
   libxkbcommon,
   libgbm,
+  libx11,
+  libxcb,
+  libxscrnsaver,
+  libxcursor,
+  libxext,
+  libxfixes,
+  libxi,
+  libxrandr,
+  libxtst,
   ninja,
   nix-update-script,
   nixosTests,
@@ -31,10 +38,9 @@
   vulkan-loader,
   wayland,
   wayland-scanner,
-  xorg,
   zenity,
   # for passthru.tests
-  SDL_compat,
+  sdl12-compat,
   sdl2-compat,
   sdl3-image,
   sdl3-ttf,
@@ -44,13 +50,15 @@
   ibusSupport ? stdenv.hostPlatform.isUnix && !stdenv.hostPlatform.isDarwin,
   jackSupport ? stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAndroid,
   libdecorSupport ? stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAndroid,
+  libudevSupport ? stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAndroid,
+  libusbSupport ? stdenv.hostPlatform.isLinux,
   openglSupport ? lib.meta.availableOn stdenv.hostPlatform libGL,
   pipewireSupport ? stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAndroid,
   pulseaudioSupport ?
     config.pulseaudio or stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAndroid,
-  libudevSupport ? stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAndroid,
   sndioSupport ? false,
   traySupport ? true,
+  vulkanSupport ? true,
   waylandSupport ? stdenv.hostPlatform.isLinux && !stdenv.hostPlatform.isAndroid,
   x11Support ? !stdenv.hostPlatform.isAndroid && !stdenv.hostPlatform.isWindows,
 }:
@@ -62,7 +70,7 @@ assert lib.assertMsg (ibusSupport -> dbusSupport) "SDL3 requires dbus support to
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "sdl3";
-  version = "3.2.22";
+  version = "3.4.12";
 
   outputs = [
     "lib"
@@ -75,24 +83,41 @@ stdenv.mkDerivation (finalAttrs: {
     owner = "libsdl-org";
     repo = "SDL";
     tag = "release-${finalAttrs.version}";
-    hash = "sha256-4jGfw2hNZTGuae2DMLz8xJBtfNu5abIN5GlNIKDOUpw=";
+    hash = "sha256-b6l3HgdhqIe9LazJmLivbCJgbKPAS8S54fuB9xvgalI=";
   };
 
   postPatch =
-    # Tests timeout on Darwin
-    # `testtray` loads assets from a relative path, which we are patching to be absolute
     lib.optionalString (finalAttrs.finalPackage.doCheck) ''
+      # Tests timeout on Darwin
       substituteInPlace test/CMakeLists.txt \
         --replace-fail 'set(noninteractive_timeout 10)' 'set(noninteractive_timeout 30)'
 
-      substituteInPlace test/testtray.c \
-        --replace-warn '../test/' '${placeholder "installedTests"}/share/assets/'
+      # intermittent test failure
+      # https://github.com/libsdl-org/SDL/issues/15346
+      substituteInPlace test/CMakeLists.txt \
+        --replace-fail \
+        'add_sdl_test_executable(testrwlock SOURCES testrwlock.c NONINTERACTIVE NONINTERACTIVE_TIMEOUT 20)' \
+        'add_sdl_test_executable(testrwlock SOURCES testrwlock.c NONINTERACTIVE NONINTERACTIVE_TIMEOUT 300)'
     ''
     + lib.optionalString waylandSupport ''
-      substituteInPlace src/video/wayland/SDL_waylandmessagebox.c \
+      substituteInPlace src/dialog/unix/SDL_zenitymessagebox.c \
         --replace-fail '"zenity"' '"${lib.getExe zenity}"'
       substituteInPlace src/dialog/unix/SDL_zenitydialog.c \
         --replace-fail '"zenity"' '"${lib.getExe zenity}"'
+    ''
+    # https://github.com/libsdl-org/SDL/issues/14805
+    + lib.optionalString vulkanSupport ''
+      substituteInPlace src/video/x11/SDL_x11vulkan.c \
+                        src/video/wayland/SDL_waylandvulkan.c \
+                        src/video/offscreen/SDL_offscreenvulkan.c \
+                        src/video/kmsdrm/SDL_kmsdrmvulkan.c \
+                        src/video/vivante/SDL_vivantevulkan.c \
+                        src/video/android/SDL_androidvulkan.c \
+        --replace-fail 'libvulkan.so' '${lib.getLib vulkan-loader}/lib/libvulkan.so'
+    ''
+    + lib.optionalString x11Support ''
+      substituteInPlace src/video/x11/SDL_x11vulkan.c \
+        --replace-fail 'libX11-xcb.so' '${lib.getLib libx11}/lib/libX11-xcb.so'
     '';
 
   strictDeps = true;
@@ -105,7 +130,7 @@ stdenv.mkDerivation (finalAttrs: {
   ++ lib.optional waylandSupport wayland-scanner;
 
   buildInputs =
-    lib.optionals stdenv.hostPlatform.isLinux [
+    lib.optionals libusbSupport [
       libusb1
     ]
     ++ lib.optional (
@@ -129,26 +154,19 @@ stdenv.mkDerivation (finalAttrs: {
       wayland
     ]
     ++ lib.optionals x11Support [
-      xorg.libX11
-      xorg.libxcb
-      xorg.libXScrnSaver
-      xorg.libXcursor
-      xorg.libXext
-      xorg.libXfixes
-      xorg.libXi
-      xorg.libXrandr
+      libx11
+      libxcb
+      libxscrnsaver
+      libxcursor
+      libxext
+      libxfixes
+      libxi
+      libxrandr
+      libxtst
     ]
-    ++ [
+    ++ lib.optionals vulkanSupport [
       vulkan-headers
       vulkan-loader
-    ]
-    ++ lib.optional (openglSupport && !stdenv.hostPlatform.isDarwin) libGL
-    ++ lib.optional x11Support xorg.libX11
-    ++ lib.optionals stdenv.hostPlatform.isDarwin [
-      # error: 'MTLPixelFormatASTC_4x4_LDR' is unavailable: not available on macOS
-      (darwinMinVersionHook "11.0")
-
-      apple-sdk_11
     ]
     ++ lib.optionals ibusSupport [
       # sdl3 only uses some constants of the ibus headers
@@ -161,6 +179,7 @@ stdenv.mkDerivation (finalAttrs: {
   cmakeFlags = [
     (lib.cmakeBool "SDL_ALSA" alsaSupport)
     (lib.cmakeBool "SDL_DBUS" dbusSupport)
+    (lib.cmakeBool "SDL_HIDAPI_LIBUSB" libusbSupport)
     (lib.cmakeBool "SDL_IBUS" ibusSupport)
     (lib.cmakeBool "SDL_JACK" jackSupport)
     (lib.cmakeBool "SDL_KMSDRM" drmSupport)
@@ -171,6 +190,7 @@ stdenv.mkDerivation (finalAttrs: {
     (lib.cmakeBool "SDL_SNDIO" sndioSupport)
     (lib.cmakeBool "SDL_TEST_LIBRARY" true)
     (lib.cmakeBool "SDL_TRAY_DUMMY" (!traySupport))
+    (lib.cmakeBool "SDL_VULKAN" vulkanSupport)
     (lib.cmakeBool "SDL_WAYLAND" waylandSupport)
     (lib.cmakeBool "SDL_WAYLAND_LIBDECOR" libdecorSupport)
     (lib.cmakeBool "SDL_X11" x11Support)
@@ -178,6 +198,15 @@ stdenv.mkDerivation (finalAttrs: {
     (lib.cmakeBool "SDL_TESTS" true)
     (lib.cmakeBool "SDL_INSTALL_TESTS" true)
     (lib.cmakeBool "SDL_DEPS_SHARED" false)
+
+    # Only ppc64le baseline guarantees AltiVec
+    (lib.cmakeBool "SDL_ALTIVEC" (stdenv.hostPlatform.isPower64 && stdenv.hostPlatform.isLittleEndian))
+
+    (lib.cmakeBool "SDL_UNIX_CONSOLE_BUILD" (
+      stdenv.hostPlatform.isUnix
+      && !(stdenv.hostPlatform.isDarwin || stdenv.hostPlatform.isAndroid)
+      && !(x11Support || waylandSupport)
+    ))
   ];
 
   doCheck = true;
@@ -216,16 +245,19 @@ stdenv.mkDerivation (finalAttrs: {
     });
 
     tests =
-      SDL_compat.tests
+      sdl12-compat.tests
       // sdl2-compat.tests
       // {
         inherit
-          SDL_compat
+          sdl12-compat
           sdl2-compat
           sdl3-image
           sdl3-ttf
           ;
-        pkg-config = testers.hasPkgConfigModules { package = finalAttrs.finalPackage; };
+        pkg-config = testers.hasPkgConfigModules {
+          package = finalAttrs.finalPackage;
+          versionCheck = true;
+        };
         inherit (finalAttrs.passthru) debug-text-example;
       }
       // lib.optionalAttrs stdenv.hostPlatform.isLinux {

@@ -12,12 +12,12 @@
   libnotify,
   libsecret,
   pangomm,
-  xorg,
+  libxscrnsaver,
   libpulseaudio,
   librsvg,
   libzip,
   openssl,
-  libappindicator-gtk3,
+  libappindicator,
 }:
 
 stdenv.mkDerivation rec {
@@ -43,12 +43,12 @@ stdenv.mkDerivation rec {
     libnotify
     libsecret
     pangomm
-    xorg.libXScrnSaver
+    libxscrnsaver
     libpulseaudio
     librsvg
     libzip
     openssl
-    libappindicator-gtk3
+    libappindicator
   ];
 
   dontUnpack = true;
@@ -67,11 +67,11 @@ stdenv.mkDerivation rec {
     runHook postInstall
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Modern instant messaging for home and work that prioritizes chat interoperability and security";
     homepage = "https://www.trillian.im/";
-    license = licenses.unfree;
-    maintainers = with maintainers; [ majiir ];
+    license = lib.licenses.unfree;
+    maintainers = with lib.maintainers; [ majiir ];
     platforms = [ "x86_64-linux" ];
   };
 }

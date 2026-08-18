@@ -21,10 +21,12 @@ let
     ;
 in
 pythonPackages.buildPythonPackage {
-  pname = "qscintilla-qt${qtVersion}";
+  # Matches the `name` declared in Python/pyproject-qt${qtVersion}.toml upstream,
+  # which is inconsistent between Qt5 ("QScintilla") and Qt6 ("PyQt6-QScintilla").
+  pname = if qtVersion == "5" then "qscintilla" else "pyqt${qtVersion}-qscintilla";
   version = qscintilla.version;
   src = qscintilla.src;
-  format = "pyproject";
+  pyproject = true;
 
   disabled = !isPy3k;
 
@@ -82,10 +84,9 @@ pythonPackages.buildPythonPackage {
 
   pythonImportsCheck = [ "PyQt${qtVersion}.Qsci" ];
 
-  meta = with lib; {
+  meta = {
     description = "Python binding to QScintilla, Qt based text editing control";
-    license = licenses.lgpl21Plus;
-    maintainers = with maintainers; [ lsix ];
+    license = lib.licenses.lgpl21Plus;
     homepage = "https://www.riverbankcomputing.com/software/qscintilla/";
   };
 }

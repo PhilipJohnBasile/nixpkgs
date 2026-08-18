@@ -73,7 +73,7 @@ Similarly, if you encounter errors similar to `Error_Protocol ("certificate has 
   A value of `null` means that `buildImage` will use the first image available in the repository.
 
   :::{.note}
-  This must be used with `fromImageName`. Using only `fromImageTag` without `fromImageName` will make `buildImage` use the first image available in the repository
+  This must be used with `fromImageName`. Using only `fromImageTag` without `fromImageName` will make `buildImage` use the first image available in the repository.
   :::
 
   _Default value:_ `null`.
@@ -201,6 +201,10 @@ Similarly, if you encounter errors similar to `Error_Protocol ("certificate has 
   :::
 
   _Default value:_ `false`.
+
+`meta` (Attribute Set)
+
+: The `meta` attribute of the resulting derivation, as in `stdenv.mkDerivation`. Accepts `description`, `maintainers` and any other `meta` attributes.
 
 `contents` **DEPRECATED**
 
@@ -635,6 +639,10 @@ This allows the function to produce reproducible images.
 
   _Default value:_ `false`.
 
+`meta` (Attribute Set)
+
+: The `meta` attribute of the resulting derivation, as in `stdenv.mkDerivation`. Accepts `description`, `maintainers` and any other `meta` attributes.
+
 `passthru` (Attribute Set; _optional_)
 
 : Use this to pass any attributes as [`passthru`](#chap-passthru) for the resulting derivation.
@@ -1005,7 +1013,7 @@ Because of this, using this function requires the `kvm` device to be available, 
   A value of `null` means that `exportImage` will use the first image available in the repository.
 
   :::{.note}
-  This must be used with `fromImageName`. Using only `fromImageTag` without `fromImageName` will make `exportImage` use the first image available in the repository
+  This must be used with `fromImageName`. Using only `fromImageTag` without `fromImageName` will make `exportImage` use the first image available in the repository.
   :::
 
   _Default value:_ `null`.
@@ -1137,7 +1145,7 @@ $ file /nix/store/by3f40xvc4l6bkis74l0fj4zsy0djgkn-hello.tar.gz
 /nix/store/by3f40xvc4l6bkis74l0fj4zsy0djgkn-hello.tar.gz: POSIX tar archive (GNU)
 ```
 
-If the archive was actually compressed, the output of file would've mentioned that fact.
+If the archive was actually compressed, the output of `file` would've mentioned that fact.
 Because of this, it may be important to set a proper `name` attribute when using `exportImage` with other functions from `dockerTools`.
 :::
 
@@ -1186,7 +1194,7 @@ This is currently implemented by linking to the `env` binary from the `coreutils
 
 ### binSh {#sssec-pkgs-dockerTools-helpers-binSh}
 
-This provides a `/bin/sh` link to the `bash` binary from the `bashInteractive` package.
+This provides a `/bin/sh` link to the `bash` binary from the `bash` package.
 Because of this, it supports cases such as running a command interactively in a container (for example by running `docker container run -it <image_name>`).
 
 ### caCertificates {#sssec-pkgs-dockerTools-helpers-caCertificates}
@@ -1490,7 +1498,7 @@ The environment in the image doesn't match `nix-shell` or `nix-build` exactly, a
   This shell is started when running the image.
   This can be seen as an equivalent of the `NIX_BUILD_SHELL` [environment variable](https://nixos.org/manual/nix/stable/command-ref/nix-shell.html#environment-variables) for {manpage}`nix-shell(1)`.
 
-  _Default value:_ the `bash` binary from the `bashInteractive` package.
+  _Default value:_ the `bash` binary from the `bash` package.
 
 `command` (String or Null; _optional_)
 

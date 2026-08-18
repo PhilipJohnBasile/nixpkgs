@@ -1,46 +1,45 @@
-{ lib
-, rustPlatform
-, fetchFromGitHub
-, pkg-config
-, protobuf
-, stdenv
-, darwin
+{
+  lib,
+  rustPlatform,
+  fetchFromGitHub,
+  pkg-config,
+  protobuf,
+  unstableGitUpdater,
 }:
 
-rustPlatform.buildRustPackage rec {
+rustPlatform.buildRustPackage (finalAttrs: {
   pname = "vecstore";
-  version = "1.0.0";
+  version = "0.1.0-unstable-2026-07-10";
 
   src = fetchFromGitHub {
     owner = "PhilipJohnBasile";
     repo = "vecstore";
-    rev = "v${version}";
-    hash = "sha256-REPLACE_WITH_ACTUAL_HASH";
+    rev = "82fb7c5e572c5d9aca73ff5facdc5365d9133503";
+    hash = "sha256-hC5XozSG9gQs962ryPywW+t4i5DlRXe2tUig+cL8oyg=";
   };
 
-  cargoHash = "sha256-REPLACE_WITH_ACTUAL_CARGO_HASH";
+  cargoLock.lockFile = "${finalAttrs.src}/Cargo.lock";
 
   nativeBuildInputs = [
     pkg-config
     protobuf
   ];
 
-  buildInputs = lib.optionals stdenv.isDarwin [
-    darwin.apple_sdk.frameworks.Security
-    darwin.apple_sdk.frameworks.SystemConfiguration
-  ];
-
   buildFeatures = [ "server" ];
 
-  # Build only the server binary
-  cargoBuildFlags = [ "--bin" "vecstore-server" ];
+  cargoBuildFlags = [
+    "--bin"
+    "vecstore-server"
+  ];
 
-  meta = with lib; {
-    description = "High-performance embeddable vector database (100/100 feature matrix vs competitors) - HNSW, hybrid search, multi-language, production-ready";
+  passthru.updateScript = unstableGitUpdater { };
+
+  meta = {
+    description = "Embeddable vector database with HNSW search and RAG tooling";
     homepage = "https://github.com/PhilipJohnBasile/vecstore";
-    license = licenses.mit;
-    maintainers = with maintainers; [ philipjohnbasile ];
+    license = lib.licenses.mit;
+    maintainers = [ lib.maintainers.philipjohnbasile ];
     mainProgram = "vecstore-server";
-    platforms = platforms.unix;
+    platforms = lib.platforms.unix;
   };
-}
+})

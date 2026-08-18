@@ -5,23 +5,23 @@
   installShellFiles,
 }:
 
-buildGoModule rec {
+buildGoModule (finalAttrs: {
   pname = "hcloud";
-  version = "1.54.0";
+  version = "1.67.0";
 
   src = fetchFromGitHub {
     owner = "hetznercloud";
     repo = "cli";
-    tag = "v${version}";
-    hash = "sha256-PpCEdhEjfd7d8DdU2ABAjL8O98cLR20xWwhcESJK4uI=";
+    tag = "v${finalAttrs.version}";
+    hash = "sha256-yARnGcKxUPJ4v9ISb7keNrcTKe0R7DoS9nRZ/wVewN8=";
   };
 
-  vendorHash = "sha256-tJwd/qLs0QvnjKi0B2NBTosGt7qCzJCHxZ5LYJB4vjA=";
+  vendorHash = "sha256-JrMMhYx61gbpIHnimNzIpPYnrnfPfObV3X9l9PNhLbE=";
 
   ldflags = [
     "-s"
     "-w"
-    "-X=github.com/hetznercloud/cli/internal/version.Version=${version}"
+    "-X=github.com/hetznercloud/cli/internal/version.Version=${finalAttrs.version}"
   ];
 
   subPackages = [ "cmd/hcloud" ];
@@ -36,7 +36,7 @@ buildGoModule rec {
   '';
 
   meta = {
-    changelog = "https://github.com/hetznercloud/cli/releases/tag/v${version}";
+    changelog = "https://github.com/hetznercloud/cli/releases/tag/v${finalAttrs.version}";
     description = "Command-line interface for Hetzner Cloud, a provider for cloud virtual private servers";
     mainProgram = "hcloud";
     homepage = "https://github.com/hetznercloud/cli";
@@ -46,4 +46,4 @@ buildGoModule rec {
       techknowlogick
     ];
   };
-}
+})

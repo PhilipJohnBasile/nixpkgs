@@ -10,25 +10,21 @@
 let
   pythonEnv = python3.withPackages (
     ps: with ps; [
-      cheetah3
+      ct3
       lxml
     ]
   );
 in
-stdenv.mkDerivation rec {
+stdenv.mkDerivation (finalAttrs: {
   pname = "sickgear";
-  version = "3.33.2";
+  version = "3.36.0";
 
   src = fetchFromGitHub {
     owner = "SickGear";
     repo = "SickGear";
-    rev = "release_${version}";
-    hash = "sha256-8cynBaVbFDI1hNwP03crkOf8Av+NCWr0xJLsZJpHLGs=";
+    tag = "release_${finalAttrs.version}";
+    hash = "sha256-+ih4UHgoyZpg9kpl3ldzaFLzd0UJ6YDrXAhV36jr+hA=";
   };
-
-  patches = [
-    ./patches/override-python-version-check.patch
-  ];
 
   dontBuild = true;
   doCheck = false;
@@ -47,11 +43,11 @@ stdenv.mkDerivation rec {
       --suffix PATH : ${lib.makeBinPath [ libarchive ]}
   '';
 
-  meta = with lib; {
+  meta = {
     description = "Most reliable stable TV fork of the great Sick-Beard to fully automate TV enjoyment with innovation";
     mainProgram = "sickgear";
-    license = licenses.gpl3;
+    license = lib.licenses.gpl3;
     homepage = "https://github.com/SickGear/SickGear";
     maintainers = with lib.maintainers; [ rembo10 ];
   };
-}
+})

@@ -9,21 +9,21 @@
 
 buildPythonPackage rec {
   pname = "yara-x";
-  version = "1.8.1";
+  version = "1.19.0";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "VirusTotal";
     repo = "yara-x";
     tag = "v${version}";
-    hash = "sha256-dl2uxMo81K2ZEAfZk2OP0FXTY4lKGmzqZe0QQo/YIsA=";
+    hash = "sha256-CokjFTQoFT9k/2/MuQSbfzHonW4V0F8hskhqDvpCesM=";
   };
 
   buildAndTestSubdir = "py";
 
   cargoDeps = rustPlatform.fetchCargoVendor {
     inherit pname src version;
-    hash = "sha256-+Bva1uch6fd6gl2MH2ss3S6Ea1QkvgVePhdUVUDuIE8=";
+    hash = "sha256-wMh8F++16tQ0IUhacBPb4rDcydmDKZKzQf8EK/qDJXo=";
   };
 
   nativeBuildInputs = [
@@ -42,6 +42,9 @@ buildPythonPackage rec {
     homepage = "https://github.com/VirusTotal/yara-x/tree/main/py";
     changelog = "https://github.com/VirusTotal/yara-x/tree/${src.tag}/py";
     license = lib.licenses.bsd3;
-    maintainers = with lib.maintainers; [ ivyfanchiang ];
+    maintainers = with lib.maintainers; [
+      ivyfanchiang
+      lesuisse
+    ];
   };
 }

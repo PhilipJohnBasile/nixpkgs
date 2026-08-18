@@ -11,8 +11,14 @@
   writeText,
 
   ## various stuff that can be plugged in
-  ffmpeg,
-  xorg,
+  ffmpeg_7,
+  ffmpeg_8,
+  libxxf86vm,
+  libxxf86dga,
+  libxt,
+  libxscrnsaver,
+  libxext,
+  libx11,
   alsa-lib,
   libpulseaudio,
   libcanberra-gtk3,
@@ -31,14 +37,28 @@
   sndio,
   libjack2,
   speechd-minimal,
+  zlib,
 }:
 
 ## configurability of the wrapper itself
 
-browser:
+browser_:
 
 let
   isDarwin = stdenv.hostPlatform.isDarwin;
+  browser =
+    # Wrapper breaks codesigning on macOS; though plugins that may require
+    # original mozilla signature (like 1Password) won't work with signatures
+    # stripped, at least the wrapped browser will launch.
+    if isDarwin then
+      browser_.overrideAttrs (
+        oldAttrs:
+        lib.optionalAttrs (oldAttrs.dontFixup or false) {
+          dontFixup = false;
+        }
+      )
+    else
+      browser_;
   wrapper =
     {
       applicationName ? browser.binaryName or (lib.getName browser), # Note: this is actually *binary* name and is different from browser.applicationName, which is *app* name!
@@ -61,6 +81,7 @@ let
       # https://mozilla.github.io/policy-templates/
       extraPolicies ? { },
       extraPoliciesFiles ? [ ],
+      extraAutoConfig ? "",
       libName ? browser.libName or applicationName, # Important for tor package or the like
       nixExtensions ? null,
       hasMozSystemDirPatch ? (lib.hasPrefix "firefox" pname && !lib.hasSuffix "-bin" pname),
@@ -68,6 +89,11 @@ let
 
     let
       ffmpegSupport = browser.ffmpegSupport or false;
+      # Firefox dlopens libavcodec by hardcoded soname, so each ffmpeg major needs
+      # explicit browser support; keep versioned pins here (never the ffmpeg alias)
+      # and add a tier when a release gains the next ABI. 146 added libavcodec 62
+      # (https://bugzilla.mozilla.org/show_bug.cgi?id=1962139), not uplifted to ESR 140.
+      ffmpegPackage = if lib.versionAtLeast browser.version "146" then ffmpeg_8 else ffmpeg_7;
       gssSupport = browser.gssSupport or false;
       alsaSupport = browser.alsaSupport or false;
       pipewireSupport = browser.pipewireSupport or false;
@@ -76,7 +102,7 @@ let
       # PCSC-Lite daemon (services.pcscd) also must be enabled for firefox to access smartcards
       smartcardSupport = cfg.smartcardSupport or false;
 
-      allNativeMessagingHosts = map lib.getBin nativeMessagingHosts;
+      allNativeMessagingHosts = map lib.getBin (lib.unique nativeMessagingHosts);
 
       libs =
         lib.optionals stdenv.hostPlatform.isLinux (
@@ -85,7 +111,7 @@ let
             libva
             libgbm
             libnotify
-            xorg.libXScrnSaver
+            libxscrnsaver
             cups
             pciutils
             vulkan-loader
@@ -93,22 +119,19 @@ let
           ++ lib.optional (cfg.speechSynthesisSupport or true) speechd-minimal
         )
         ++ lib.optional pipewireSupport pipewire
-        ++ lib.optional ffmpegSupport ffmpeg
+        ++ lib.optional ffmpegSupport ffmpegPackage
         ++ lib.optional gssSupport libkrb5
         ++ lib.optional useGlvnd libglvnd
-        ++ lib.optionals (cfg.enableQuakeLive or false) (
-          with xorg;
-          [
-            stdenv.cc
-            libX11
-            libXxf86dga
-            libXxf86vm
-            libXext
-            libXt
-            alsa-lib
-            zlib
-          ]
-        )
+        ++ lib.optionals (cfg.enableQuakeLive or false) [
+          stdenv.cc
+          libx11
+          libxxf86dga
+          libxxf86vm
+          libxext
+          libxt
+          alsa-lib
+          zlib
+        ]
         ++ lib.optional (config.pulseaudio or (!isDarwin)) libpulseaudio
         ++ lib.optional alsaSupport alsa-lib
         ++ lib.optional sndioSupport sndio
@@ -116,7 +139,7 @@ let
         ++ lib.optional smartcardSupport opensc
         ++ pkcs11Modules
         ++ lib.optionals (!isDarwin) gtk_modules;
-      gtk_modules = [ libcanberra-gtk3 ];
+      gtk_modules = lib.optionals (!isDarwin) [ libcanberra-gtk3 ];
 
       # Darwin does not rename bundled binaries
       launcherName = "${applicationName}${lib.optionalString (!isDarwin) nameSuffix}";
@@ -149,36 +172,34 @@ let
           ) (lib.optionals usesNixExtensions nixExtensions);
 
       enterprisePolicies = {
-        policies = {
-          DisableAppUpdate = true;
-        }
-        // lib.optionalAttrs usesNixExtensions {
-          ExtensionSettings = {
-            "*" = {
-              blocked_install_message = "You can't have manual extension mixed with nix extensions";
-              installation_mode = "blocked";
-            };
-          }
-          // lib.foldr (
-            e: ret:
-            ret
-            // {
-              "${e.extid}" = {
-                installation_mode = "allowed";
+        policies =
+          lib.optionalAttrs usesNixExtensions {
+            ExtensionSettings = {
+              "*" = {
+                blocked_install_message = "You can't have manual extension mixed with nix extensions";
+                installation_mode = "blocked";
               };
             }
-          ) { } extensions;
+            // lib.foldr (
+              e: ret:
+              ret
+              // {
+                "${e.extid}" = {
+                  installation_mode = "allowed";
+                };
+              }
+            ) { } extensions;
 
-          Extensions = {
-            Install = lib.foldr (e: ret: ret ++ [ "${e.outPath}/${e.extid}.xpi" ]) [ ] extensions;
-          };
-        }
-        // lib.optionalAttrs smartcardSupport {
-          SecurityDevices = {
-            "OpenSC PKCS#11 Module" = "opensc-pkcs11.so";
-          };
-        }
-        // extraPolicies;
+            Extensions = {
+              Install = lib.foldr (e: ret: ret ++ [ "${e.outPath}/${e.extid}.xpi" ]) [ ] extensions;
+            };
+          }
+          // lib.optionalAttrs smartcardSupport {
+            SecurityDevices = {
+              "OpenSC PKCS#11 Module" = "opensc-pkcs11.so";
+            };
+          }
+          // extraPolicies;
       };
 
       mozillaCfg = ''
@@ -200,6 +221,7 @@ let
     in
     stdenv.mkDerivation (finalAttrs: {
       __structuredAttrs = true;
+      strictDeps = true;
       inherit pname version;
 
       desktopItem = makeDesktopItem (
@@ -213,7 +235,7 @@ let
           terminal = false;
         }
         // (
-          if libName == "thunderbird" then
+          if lib.strings.hasPrefix "thunderbird" libName then
             {
               genericName = "Email Client";
               comment = "Read and write e-mails or RSS feeds, or manage tasks on calendars.";
@@ -344,13 +366,13 @@ let
       ]
       ++ lib.optionals (!hasMozSystemDirPatch && allNativeMessagingHosts != [ ]) [
         "--run"
-        ''mkdir -p ''${MOZ_HOME:-~/.mozilla}/native-messaging-hosts''
+        "mkdir -p \${MOZ_HOME:-~/.mozilla}/native-messaging-hosts"
 
       ]
       ++ lib.optionals (!hasMozSystemDirPatch) (
         lib.concatMap (ext: [
           "--run"
-          ''ln -sfLt ''${MOZ_HOME:-~/.mozilla}/native-messaging-hosts ${ext}/lib/mozilla/native-messaging-hosts/*''
+          "ln -sfLt \${MOZ_HOME:-~/.mozilla}/native-messaging-hosts ${ext}/lib/mozilla/native-messaging-hosts/*"
         ]) allNativeMessagingHosts
       );
 
@@ -397,6 +419,9 @@ let
             ln -sfT "$target" "$out/$l"
           done
 
+          # Disable update checks
+          touch "$out/${libDir}/is-packaged-app"
+
           cd "$out"
 
         ''
@@ -407,10 +432,21 @@ let
           # Maybe related to how omni.ja file is mmapped into memory. See:
           # https://github.com/mozilla/gecko-dev/blob/b1662b447f306e6554647914090d4b73ac8e1664/modules/libjar/nsZipArchive.cpp#L204
           #
-          # The *.dylib files are copied, otherwise some basic functionality, e.g. Crypto API, is broken.
-          for file in $(find . -name "omni.ja" -o -name "*.dylib"); do
+          # Mach-O shared libraries must be copied, not symlinked, otherwise some
+          # functionality like the Crypto API and audio decoding is broken.
+          find . -type l -print0 |
+          while IFS= read -r -d "" file; do
+            case "$(basename "$file")" in
+              omni.ja)
+                ;;
+              *)
+                # Copy if the symlink resolves to a Mach-O dylib
+                otool -l "$file" 2>/dev/null | grep -F 'LC_ID_DYLIB' >/dev/null || continue
+                ;;
+            esac
+
             rm "$file"
-            cp "${browser}/${appPath}/$file" "$file"
+            cp "${browser}/${appPath}/''${file#./}" "$file"
           done
 
           # Copy any embedded .app directories; plugin-container fails to start otherwise.
@@ -526,8 +562,11 @@ let
           prefsDir="$out/${prefsDir}"
           mkdir -p "$prefsDir"
 
-          echo 'pref("general.config.filename", "mozilla.cfg");' > "$prefsDir/autoconfig.js"
-          echo 'pref("general.config.obscure_value", 0);' >> "$prefsDir/autoconfig.js"
+          cat > "$prefsDir/autoconfig.js" << EOF
+          pref("general.config.filename", "mozilla.cfg");
+          pref("general.config.obscure_value", 0);
+          ${extraAutoConfig}
+          EOF
 
           cat > "$libDir/mozilla.cfg" << EOF
           ${mozillaCfg}
@@ -562,7 +601,6 @@ let
 
       disallowedRequisites = [ stdenv.cc ];
       meta = browser.meta // {
-        inherit (browser.meta) description;
         mainProgram = launcherName;
         hydraPlatforms = [ ];
         priority = (browser.meta.priority or lib.meta.defaultPriority) - 1; # prefer wrapper over the package

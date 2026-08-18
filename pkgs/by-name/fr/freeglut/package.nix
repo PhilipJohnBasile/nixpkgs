@@ -2,12 +2,11 @@
   lib,
   stdenv,
   fetchurl,
-  fetchpatch,
-  libICE,
-  libXext,
-  libXi,
-  libXrandr,
-  libXxf86vm,
+  libice,
+  libxext,
+  libxi,
+  libxrandr,
+  libxxf86vm,
   libGLX,
   libGLU,
   cmake,
@@ -16,20 +15,12 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "freeglut";
-  version = "3.6.0";
+  version = "3.8.0";
 
   src = fetchurl {
     url = "mirror://sourceforge/freeglut/freeglut-${finalAttrs.version}.tar.gz";
-    sha256 = "sha256-nD1NZRb7+gKA7ck8d2mPtzA+RDwaqvN9Jp4yiKbD6lI=";
+    hash = "sha256-Z03K/yUBDgnkUK7EWLiHDZ6YxG+ZU420V6tlmzIdmYk=";
   };
-
-  patches = [
-    (fetchpatch {
-      name = "freeglut-fix-cmake-4.patch";
-      url = "https://github.com/freeglut/freeglut/commit/2294389397912c9a6505a88221abb7dca0a4fb79.patch";
-      hash = "sha256-buNhlVUbDekklnar6KFWN/GUKE+jMEqTGrY3LY0LwVs=";
-    })
-  ];
 
   outputs = [
     "out"
@@ -38,11 +29,11 @@ stdenv.mkDerivation (finalAttrs: {
 
   nativeBuildInputs = [ cmake ];
   buildInputs = [
-    libICE
-    libXext
-    libXi
-    libXrandr
-    libXxf86vm
+    libice
+    libxext
+    libxi
+    libxrandr
+    libxxf86vm
     libGLU
   ];
 
@@ -54,7 +45,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   passthru.tests.pkg-config = testers.testMetaPkgConfig finalAttrs.finalPackage;
 
-  meta = with lib; {
+  meta = {
     description = "Create and manage windows containing OpenGL contexts";
     longDescription = ''
       FreeGLUT is an open source alternative to the OpenGL Utility Toolkit
@@ -65,9 +56,9 @@ stdenv.mkDerivation (finalAttrs: {
       differences.
     '';
     homepage = "https://freeglut.sourceforge.net/";
-    license = licenses.mit;
+    license = lib.licenses.mit;
     pkgConfigModules = [ "glut" ];
-    platforms = platforms.all;
-    maintainers = [ maintainers.bjornfor ];
+    platforms = lib.platforms.all;
+    maintainers = [ lib.maintainers.bjornfor ];
   };
 })

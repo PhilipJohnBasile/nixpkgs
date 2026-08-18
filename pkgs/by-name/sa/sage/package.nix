@@ -1,5 +1,6 @@
 {
   pkgs,
+  stdenv,
   withDoc ? false,
   requireSageTests ? true,
   extraPythonPackages ? ps: [ ],
@@ -10,7 +11,7 @@
 # is always preferred, see `sage-src.nix` for that.
 
 let
-  inherit (pkgs) symlinkJoin callPackage nodePackages;
+  inherit (pkgs) symlinkJoin callPackage mathjax;
 
   python3 = pkgs.python3 // {
     pkgs = pkgs.python3.pkgs.overrideScope (
@@ -66,7 +67,7 @@ let
     inherit singular maxima;
     inherit three;
     cysignals = python3.pkgs.cysignals;
-    mathjax = nodePackages.mathjax;
+    mathjax = mathjax;
   };
 
   # The shell file that gets sourced on every sage start. Will also source

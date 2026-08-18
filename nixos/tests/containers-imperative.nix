@@ -3,9 +3,7 @@
   name = "containers-imperative";
   meta = {
     maintainers = with lib.maintainers; [
-      aristid
       aszlig
-      kampfschlaefer
     ];
   };
 
@@ -49,13 +47,14 @@
           stdenv
           stdenvNoCC
           emptyContainer.config.containers.foo.path
+          libcap-text-verifier
           libxslt
           desktop-file-utils
           texinfo
           docbook5
           libxml2
           docbook_xsl_ns
-          xorg.lndir
+          lndir
           documentation-highlighter
           perlPackages.ConfigIniFiles
         ];

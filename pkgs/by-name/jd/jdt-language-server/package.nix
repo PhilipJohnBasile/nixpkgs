@@ -7,15 +7,15 @@
 }:
 
 let
-  timestamp = "202510022025";
+  timestamp = "202606262232";
 in
 stdenv.mkDerivation (finalAttrs: {
   pname = "jdt-language-server";
-  version = "1.51.0";
+  version = "1.60.0";
 
   src = fetchurl {
     url = "https://download.eclipse.org/jdtls/milestones/${finalAttrs.version}/jdt-language-server-${finalAttrs.version}-${timestamp}.tar.gz";
-    hash = "sha256-ilk3IReIG/W9wCIPIlRHKEa4gTfAWPNEsAp9QUJ3RaE=";
+    hash = "sha256-6UwwPYGY+XeTCANYJzh3H9GMUsVJKHhBC/IisaqB7x0=";
   };
 
   sourceRoot = ".";
@@ -63,6 +63,7 @@ stdenv.mkDerivation (finalAttrs: {
     maintainers = with lib.maintainers; [
       matt-snider
       wenjinnn
+      yvnth
     ];
     platforms = lib.platforms.all;
     mainProgram = "jdtls";

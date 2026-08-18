@@ -8,7 +8,19 @@
   makeWrapper,
   runtimeShell,
   gtk3,
-  xorg,
+  libxtst,
+  libxscrnsaver,
+  libxrender,
+  libxrandr,
+  libxi,
+  libxfixes,
+  libxext,
+  libxdamage,
+  libxcursor,
+  libxcomposite,
+  libx11,
+  libxshmfence,
+  libxkbfile,
   glib,
   cairo,
   pango,
@@ -40,7 +52,7 @@
 
 let
   pname = "mongodb-compass";
-  version = "1.47.1";
+  version = "1.49.14";
 
   selectSystem =
     attrs:
@@ -50,14 +62,12 @@ let
     url = "https://downloads.mongodb.com/compass/${
       selectSystem {
         x86_64-linux = "mongodb-compass_${version}_amd64.deb";
-        x86_64-darwin = "mongodb-compass-${version}-darwin-x64.zip";
         aarch64-darwin = "mongodb-compass-${version}-darwin-arm64.zip";
       }
     }";
     hash = selectSystem {
-      x86_64-linux = "sha256-L+IhvRqUllrFkntYeuE+3Ox59U60fu0P2VP6Zb/1ORA=";
-      x86_64-darwin = "sha256-NYgXtCdrny6pKACYmWDHvrlCOJupyP4GqobDr+13WqU=";
-      aarch64-darwin = "sha256-mZ6bLY6hnOhPb2pxPKpiVQpF3ffZlC265QvkIIjpM9A=";
+      x86_64-linux = "sha256-PrpL72+fbCa/C0JpbxGiEBtAEoEvvZhy9FIkJhq0g0g=";
+      aarch64-darwin = "sha256-dW99BE4w9uzGGTNb47h4RuVrGlMi0b0dklAsV/6MY3g=";
     };
   };
 
@@ -90,32 +100,35 @@ let
     pango
     stdenv.cc.cc
     systemd
-    xorg.libX11
-    xorg.libXScrnSaver
-    xorg.libXcomposite
-    xorg.libXcursor
-    xorg.libXdamage
-    xorg.libXext
-    xorg.libXfixes
-    xorg.libXi
-    xorg.libXrandr
-    xorg.libXrender
-    xorg.libXtst
-    xorg.libxkbfile
-    xorg.libxshmfence
+    libx11
+    libxscrnsaver
+    libxcomposite
+    libxcursor
+    libxdamage
+    libxext
+    libxfixes
+    libxi
+    libxrandr
+    libxrender
+    libxtst
+    libxkbfile
+    libxshmfence
     (lib.getLib stdenv.cc.cc)
   ];
 in
 stdenv.mkDerivation (finalAttrs: {
   inherit pname version src;
 
-  buildInputs = lib.optionals stdenv.hostPlatform.isLinux [
-    dpkg
-    wrapGAppsHook3
-    patchelf
-  ];
+  __structuredAttrs = true;
+  strictDeps = true;
 
-  nativeBuildInputs = lib.optionals stdenv.hostPlatform.isDarwin [ unzip ];
+  nativeBuildInputs =
+    lib.optionals stdenv.hostPlatform.isLinux [
+      dpkg
+      wrapGAppsHook3
+      patchelf
+    ]
+    ++ lib.optionals stdenv.hostPlatform.isDarwin [ unzip ];
 
   dontUnpack = stdenv.hostPlatform.isLinux;
   dontFixup = stdenv.hostPlatform.isDarwin;
@@ -146,7 +159,8 @@ stdenv.mkDerivation (finalAttrs: {
       patchelf --set-rpath ${rpath}:$out/lib/mongodb-compass "$file" || true
     done
 
-    wrapGAppsHook $out/bin/mongodb-compass
+    gappsWrapperArgsHook
+    wrapGApp "$out/bin/mongodb-compass"
   '';
 
   installPhase = ''
@@ -175,18 +189,17 @@ stdenv.mkDerivation (finalAttrs: {
   meta = {
     description = "GUI for MongoDB";
     homepage = "https://github.com/mongodb-js/compass";
+    changelog = "https://github.com/mongodb-js/compass/releases/tag/v${finalAttrs.version}";
     license = lib.licenses.sspl;
     sourceProvenance = with lib.sourceTypes; [ binaryNativeCode ];
     mainProgram = "mongodb-compass";
     maintainers = with lib.maintainers; [
-      bryanasdev000
       friedow
       iamanaws
     ];
     platforms = [
       "x86_64-linux"
       "aarch64-darwin"
-      "x86_64-darwin"
     ];
   };
 })

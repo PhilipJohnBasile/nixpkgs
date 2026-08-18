@@ -26,23 +26,23 @@
   questionary,
 }:
 
-buildPythonPackage rec {
+buildPythonPackage (finalAttrs: {
   pname = "copier";
-  version = "9.10.2";
+  version = "9.17.1";
   pyproject = true;
 
   src = fetchFromGitHub {
     owner = "copier-org";
     repo = "copier";
-    tag = "v${version}";
+    tag = "v${finalAttrs.version}";
     # Conflict on APFS on darwin
     postFetch = ''
       rm $out/tests/demo/doc/ma*ana.txt
     '';
-    hash = "sha256-vO807Jzl04DkiHPBhu3cGK0bhn2Cd2dT1nKznQKP/p0=";
+    hash = "sha256-Bv3jXePZwF6fbOcMq1eNPrRZiCXXp0598t6qQJXol1o=";
   };
 
-  POETRY_DYNAMIC_VERSIONING_BYPASS = version;
+  env.POETRY_DYNAMIC_VERSIONING_BYPASS = finalAttrs.version;
 
   build-system = [
     hatchling
@@ -77,9 +77,12 @@ buildPythonPackage rec {
   meta = {
     description = "Library and command-line utility for rendering projects templates";
     homepage = "https://copier.readthedocs.io";
-    changelog = "https://github.com/copier-org/copier/blob/${src.tag}/CHANGELOG.md";
+    changelog = "https://github.com/copier-org/copier/blob/${finalAttrs.src.tag}/CHANGELOG.md";
     license = lib.licenses.mit;
-    maintainers = with lib.maintainers; [ greg ];
+    maintainers = with lib.maintainers; [
+      greg
+      savtrip
+    ];
     mainProgram = "copier";
   };
-}
+})

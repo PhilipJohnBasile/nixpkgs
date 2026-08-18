@@ -14,40 +14,46 @@ stdenv.mkDerivation (finalAttrs: {
   pname = "libatomic";
   inherit version;
 
-  src = runCommand "libatomic-src-${version}" { src = monorepoSrc; } ''
-    runPhase unpackPhase
+  src = runCommand "libatomic-src-${version}" { src = monorepoSrc; } (
+    ''
+      runPhase unpackPhase
 
-    mkdir -p "$out/gcc"
-    cp gcc/BASE-VER "$out/gcc"
-    cp gcc/DATESTAMP "$out/gcc"
+      mkdir -p "$out/gcc"
+      cp gcc/BASE-VER "$out/gcc"
+      cp gcc/DATESTAMP "$out/gcc"
 
-    cp -r libatomic "$out"
+      cp -r libatomic "$out"
 
-    cp -r config "$out"
-    cp -r multilib.am "$out"
-    cp -r libtool.m4 "$out"
+      cp -r config "$out"
+      cp -r multilib.am "$out"
+      cp -r libtool.m4 "$out"
 
-    cp config.guess "$out"
-    cp config.rpath "$out"
-    cp config.sub "$out"
-    cp config-ml.in "$out"
-    cp ltmain.sh "$out"
-    cp install-sh "$out"
-    cp mkinstalldirs "$out"
+      cp config.guess "$out"
+      cp config.rpath "$out"
+      cp config.sub "$out"
+      cp config-ml.in "$out"
+      cp ltmain.sh "$out"
+      cp install-sh "$out"
+      cp mkinstalldirs "$out"
 
-    [[ -f MD5SUMS ]]; cp MD5SUMS "$out"
-  '';
+    ''
+    # `MD5SUMS` exists only in release tarballs, not in a VCS checkout.
+    + ''
+      if [[ -f MD5SUMS ]]; then cp MD5SUMS "$out"; fi
+    ''
+  );
 
   patches = [
     (fetchpatch {
       name = "custom-threading-model.patch";
-      url = "https://inbox.sourceware.org/gcc-patches/20250716204545.1063669-1-git@JohnEricson.me/raw";
-      hash = "sha256-kxNntY2r4i/+XHQSpf9bYV2Jg+FD/pD5TiMn5hd4ckk=";
+      url = "https://github.com/gcc-mirror/gcc/commit/e5d853bbe9b05d6a00d98ad236f01937303e40c4.diff";
+      hash = "sha256-U1Eh6ByhmseHQigfHIyO4MlAQB3fECmpPEP/M00DOg0=";
       includes = [
         "config/*"
-        "libatomic/*"
+        "libatomic/configure.ac"
       ];
     })
+    (getVersionFile "libatomic/gthr-include.patch")
   ];
 
   postUnpack = ''

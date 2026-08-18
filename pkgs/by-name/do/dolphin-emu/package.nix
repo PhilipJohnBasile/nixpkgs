@@ -9,7 +9,7 @@
   qt6,
   wrapGAppsHook3,
   # darwin-only
-  xcbuild,
+  re-plistbuddy,
 
   # buildInputs
   bzip2,
@@ -18,29 +18,30 @@
   enet,
   ffmpeg,
   fmt,
+  glslang,
   gtest,
   hidapi,
-  libXdmcp,
+  libxdmcp,
   libpulseaudio,
   libspng,
   libusb1,
   lz4,
   lzo,
-  mbedtls,
   miniupnpc,
   minizip-ng,
   openal,
   pugixml,
-  SDL2,
+  sdl3,
   sfml,
-  xxHash,
+  xxhash,
   xz,
+  zlib-ng,
   # linux-only
   alsa-lib,
   bluez,
   libGL,
-  libXext,
-  libXrandr,
+  libxext,
+  libxrandr,
   libevdev,
   udev,
   vulkan-loader,
@@ -54,13 +55,13 @@
 
 stdenv.mkDerivation (finalAttrs: {
   pname = "dolphin-emu";
-  version = "2509";
+  version = "2606";
 
   src = fetchFromGitHub {
     owner = "dolphin-emu";
     repo = "dolphin";
     tag = finalAttrs.version;
-    hash = "sha256-ZTNg8DRgtC1jS3MoYK1wwzjJbMkLNdkRub+KOg3NmYM=";
+    hash = "sha256-Rs/b5Vnm1VAYpvC6YWj3bZqHBCw2SCHnzLro1UrvsdY=";
     fetchSubmodules = true;
     leaveDotGit = true;
     postFetch = ''
@@ -71,6 +72,11 @@ stdenv.mkDerivation (finalAttrs: {
     '';
   };
 
+  postPatch = lib.optionalString (stdenv.hostPlatform.isDarwin) ''
+    substituteInPlace CMake/DolphinInjectVersionInfo.cmake \
+      --replace-fail "/usr/libexec/PlistBuddy" "PlistBuddy"
+  '';
+
   strictDeps = true;
 
   nativeBuildInputs = [
@@ -80,7 +86,7 @@ stdenv.mkDerivation (finalAttrs: {
     wrapGAppsHook3
   ]
   ++ lib.optionals stdenv.hostPlatform.isDarwin [
-    xcbuild # for plutil
+    re-plistbuddy # for plutil as well
   ];
 
   buildInputs = [
@@ -90,34 +96,34 @@ stdenv.mkDerivation (finalAttrs: {
     enet
     ffmpeg
     fmt
+    glslang
     gtest
     hidapi
-    libXdmcp
+    libxdmcp
     libpulseaudio
     libspng
     libusb1
     lz4
     lzo
-    mbedtls
+    #mbedtls_2 # Use vendored, as using nixpkgs' would mark the package unsafe
     miniupnpc
     minizip-ng
     openal
     pugixml
     qt6.qtbase
     qt6.qtsvg
-    SDL2
+    sdl3
     sfml
-    xxHash
+    xxhash
     xz
-    # Causes linker errors with minizip-ng, prefer vendored. Possible reason why: https://github.com/dolphin-emu/dolphin/pull/12070#issuecomment-1677311838
-    #zlib-ng
+    zlib-ng
   ]
   ++ lib.optionals stdenv.hostPlatform.isLinux [
     alsa-lib
     bluez
     libGL
-    libXext
-    libXrandr
+    libxext
+    libxrandr
     libevdev
     # FIXME: Vendored version is newer than mgba's stable release, remove the comment on next mgba's version
     #mgba # Derivation doesn't support Darwin
@@ -153,16 +159,13 @@ stdenv.mkDerivation (finalAttrs: {
 
   qtWrapperArgs = lib.optionals stdenv.hostPlatform.isLinux [
     "--prefix LD_LIBRARY_PATH : ${lib.makeLibraryPath [ vulkan-loader ]}"
-    # https://bugs.dolphin-emu.org/issues/11807
-    # The .desktop file should already set this, but Dolphin may be launched in other ways
-    "--set QT_QPA_PLATFORM xcb"
   ];
 
   doInstallCheck = true;
 
   postInstall =
     lib.optionalString stdenv.hostPlatform.isLinux ''
-      install -D $src/Data/51-usb-device.rules $out/etc/udev/rules.d/51-usb-device.rules
+      install -Dm644 $src/Data/51-usb-device.rules $out/etc/udev/rules.d/51-usb-device.rules
     ''
     + lib.optionalString stdenv.hostPlatform.isDarwin ''
       # Only gets installed automatically if the standalone executable is used
@@ -200,10 +203,6 @@ stdenv.mkDerivation (finalAttrs: {
     branch = "master";
     license = lib.licenses.gpl2Plus;
     platforms = lib.platforms.unix;
-    badPlatforms = [
-      # error: implicit instantiation of undefined template 'std::char_traits<unsigned int>'
-      lib.systems.inspect.patterns.isDarwin
-    ];
     maintainers = with lib.maintainers; [ pbsds ];
   };
 })

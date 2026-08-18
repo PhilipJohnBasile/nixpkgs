@@ -11,22 +11,23 @@
   dante,
   gawk,
   versionCheckHook,
+  bashNonInteractive,
   nix-update-script,
 }:
 
 buildGoModule (finalAttrs: {
   pname = "aerc";
-  version = "0.21.0";
+  version = "0.22.0";
 
   src = fetchFromSourcehut {
     owner = "~rjarry";
     repo = "aerc";
     rev = finalAttrs.version;
-    hash = "sha256-UBXMAIuB0F7gG0dkpEF/3V4QK6FEbQw2ZLGGmRF884I=";
+    hash = "sha256-JeIhZvUPrvWdeTae558jbn0reQuDAxNl29ziGcB+7ts=";
   };
 
   proxyVendor = true;
-  vendorHash = "sha256-E/DnfiHoDDNNoaNGZC/nvs8DiJ8F2+H2FzxpU7nK+bE=";
+  vendorHash = "sha256-iGVRh4AFR1y6mtv7I89ar26PxGxfnEGdtaiTzI7cSnw=";
 
   nativeBuildInputs = [
     scdoc
@@ -52,6 +53,7 @@ buildGoModule (finalAttrs: {
   buildInputs = [
     python3Packages.python
     gawk
+    bashNonInteractive
   ]
   ++ lib.optional withNotmuch notmuch;
 
@@ -59,6 +61,7 @@ buildGoModule (finalAttrs: {
     runHook preInstall
 
     make $makeFlags GOFLAGS="$GOFLAGS${lib.optionalString withNotmuch " -tags=notmuch"}" install
+    wrapPythonProgramsIn "$out/libexec/" "''${pythonPath[*]}"
 
     runHook postInstall
   '';
@@ -73,18 +76,9 @@ buildGoModule (finalAttrs: {
           dante
         ]
       }
-    wrapProgram $out/libexec/aerc/filters/html-unsafe \
-      --prefix PATH : ${
-        lib.makeBinPath [
-          w3m
-          dante
-        ]
-      }
-    patchShebangs $out/libexec/aerc/filters
   '';
 
   nativeInstallCheckInputs = [ versionCheckHook ];
-  versionCheckProgramArg = "--version";
   doInstallCheck = true;
 
   passthru.updateScript = nix-update-script { };

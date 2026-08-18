@@ -9,13 +9,13 @@
 }:
 
 python3.pkgs.buildPythonApplication rec {
-  version = "0.8.1";
+  version = "0.9.1";
   pyproject = true;
   pname = "nbstripout";
 
   src = fetchPypi {
     inherit pname version;
-    hash = "sha256-6qyLa05yno3+Hl3ywPi6RKvFoXplRI8EgBQfgL4jC7E=";
+    hash = "sha256-MTu7QhfI44mYVn5deQtr1sOheow5BzsgW4Ta38XXVtw=";
   };
 
   testAssets = fetchFromGitHub {
