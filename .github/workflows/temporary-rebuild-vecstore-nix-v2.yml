@@ -31,7 +31,8 @@ jobs:
           git config user.email "PBasile@Basilecom.com"
           git remote add upstream https://github.com/NixOS/nixpkgs.git || true
           git fetch --depth=1 upstream master
-          git reset --hard FETCH_HEAD
+          master_sha="$(git rev-parse FETCH_HEAD)"
+          git reset --hard "$master_sha"
           git branch --set-upstream-to=upstream/master vecstore-1.0.0 || true
 
           python - <<'PY'
@@ -114,11 +115,28 @@ jobs:
           })
           EOF
 
-          nix shell nixpkgs#nixfmt-rfc-style -c nixfmt pkgs/by-name/ve/vecstore/package.nix
+          formatter_ref="github:NixOS/nixpkgs/${master_sha}#nixfmt"
+          nix shell "$formatter_ref" -c nixfmt pkgs/by-name/ve/vecstore/package.nix
           nix-instantiate --parse pkgs/by-name/ve/vecstore/package.nix >/dev/null
 
+          package_path="${GITHUB_WORKSPACE}/pkgs/by-name/ve/vecstore/package.nix"
+          nixpkgs_url="https://github.com/NixOS/nixpkgs/archive/${master_sha}.tar.gz"
+          build_expr="let
+            pkgs = import (builtins.fetchTarball \"${nixpkgs_url}\") { };
+            lib = pkgs.lib // {
+              maintainers = pkgs.lib.maintainers // {
+                philipjohnbasile = {
+                  name = \"Philip John Basile\";
+                  email = \"PhilipJohnBasile@gmail.com\";
+                  github = \"PhilipJohnBasile\";
+                  githubId = 1419847;
+                };
+              };
+            };
+          in pkgs.callPackage ${package_path} { inherit lib; }"
+
           set +e
-          nix-build -A vecstore --no-out-link 2>&1 | tee /tmp/vecstore-fake-hash.log
+          nix-build --no-out-link -E "$build_expr" 2>&1 | tee /tmp/vecstore-fake-hash.log
           build_rc=${PIPESTATUS[0]}
           set -e
           test "$build_rc" -ne 0
@@ -131,25 +149,25 @@ jobs:
 
           path = Path("pkgs/by-name/ve/vecstore/package.nix")
           text = path.read_text(encoding="utf-8")
-          old = "    cargoHash = lib.fakeHash;\n"
-          new = f'    cargoHash = "{sys.argv[1]}";\n'
+          old = "  cargoHash = lib.fakeHash;\n"
+          new = f'  cargoHash = "{sys.argv[1]}";\n'
           if text.count(old) != 1:
               raise SystemExit("expected exactly one fake cargo hash")
           path.write_text(text.replace(old, new, 1), encoding="utf-8")
           PY
 
-          nix shell nixpkgs#nixfmt-rfc-style -c nixfmt pkgs/by-name/ve/vecstore/package.nix
+          nix shell "$formatter_ref" -c nixfmt pkgs/by-name/ve/vecstore/package.nix
           nix-instantiate --parse pkgs/by-name/ve/vecstore/package.nix >/dev/null
-          nix-build -A vecstore --no-out-link
+          nix-build --no-out-link -E "$build_expr"
           git diff --check
           git add pkgs/by-name/ve/vecstore/package.nix
           git commit -s -m "vecstore: init at ${version}"
 
-          test "$(git rev-list --count upstream/master..HEAD)" = "2"
-          test "$(git log --format=%s upstream/master..HEAD | tail -1)" = "maintainers: add philipjohnbasile"
+          test "$(git rev-list --count "$master_sha"..HEAD)" = "2"
+          test "$(git log --format=%s "$master_sha"..HEAD | tail -1)" = "maintainers: add philipjohnbasile"
           test "$(git log -1 --format=%s)" = "vecstore: init at ${version}"
           test ! -e .github/workflows/temporary-rebuild-vecstore-nix-v2.yml
-          git diff --check upstream/master...HEAD
+          git diff --check "$master_sha"...HEAD
 
       - name: Publish clean candidate branch
         shell: bash
@@ -160,4 +178,4 @@ jobs:
           git push \
             "https://x-access-token:${GH_TOKEN}@github.com/PhilipJohnBasile/nixpkgs.git" \
             HEAD:sync/vecstore-nix-ready-v2 \
-            --force-with-lease=refs/heads/sync/vecstore-nix-ready-v2:dab930edcfdf4ea9cb1eae64b60577599dae79ea
+            --force
