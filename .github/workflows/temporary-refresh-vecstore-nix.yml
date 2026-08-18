@@ -62,6 +62,7 @@ jobs:
           revision="82fb7c5e572c5d9aca73ff5facdc5365d9133503"
           source_url="https://github.com/PhilipJohnBasile/vecstore/archive/${revision}.tar.gz"
           source_hash="$(nix store prefetch-file --json --unpack "$source_url" | python -c 'import json,sys; print(json.load(sys.stdin)["hash"])')"
+          echo "VecStore Nix source hash: ${source_hash}"
 
           mkdir -p pkgs/by-name/ve/vecstore
           cat > pkgs/by-name/ve/vecstore/package.nix <<EOF
@@ -124,7 +125,7 @@ jobs:
           test ! -e .github/workflows/temporary-refresh-vecstore-nix.yml
           git diff --check upstream/master...HEAD
 
-      - name: Push refreshed branch
+      - name: Publish clean candidate branch
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -132,5 +133,5 @@ jobs:
           set -euo pipefail
           git push \
             "https://x-access-token:${GH_TOKEN}@github.com/PhilipJohnBasile/nixpkgs.git" \
-            HEAD:vecstore-1.0.0 \
-            --force-with-lease=refs/heads/vecstore-1.0.0:${GITHUB_SHA}
+            HEAD:sync/vecstore-nix-ready \
+            --force
