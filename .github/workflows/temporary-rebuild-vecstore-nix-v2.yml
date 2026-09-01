@@ -60,7 +60,7 @@ jobs:
           git commit -s -m "maintainers: add philipjohnbasile"
 
           version="0.1.0-unstable-2026-09-01"
-          revision="dc8dac35df691f02e59948d6ba08a9df07f79cd5"
+          revision="1868a6273174f58856af25ba6c45eb057d3bbfd0"
           source_url="https://github.com/PhilipJohnBasile/vecstore/archive/${revision}.tar.gz"
           source_hash="$(nix store prefetch-file --json --unpack "$source_url" | python -c 'import json,sys; print(json.load(sys.stdin)["hash"])')"
           echo "VecStore Nix source hash: ${source_hash}"
@@ -98,6 +98,8 @@ jobs:
             cargoBuildFlags = [
               "--bin"
               "vecstore-server"
+              "--jobs"
+              "1"
             ];
 
             passthru.updateScript = unstableGitUpdater { };
