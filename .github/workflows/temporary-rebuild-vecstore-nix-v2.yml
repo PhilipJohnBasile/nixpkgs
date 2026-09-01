@@ -60,7 +60,7 @@ jobs:
           git commit -s -m "maintainers: add philipjohnbasile"
 
           version="0.1.0-unstable-2026-09-01"
-          revision="93ef59cf8d105ea7af951af8fdca79ccf9d06110"
+          revision="dc8dac35df691f02e59948d6ba08a9df07f79cd5"
           source_url="https://github.com/PhilipJohnBasile/vecstore/archive/${revision}.tar.gz"
           source_hash="$(nix store prefetch-file --json --unpack "$source_url" | python -c 'import json,sys; print(json.load(sys.stdin)["hash"])')"
           echo "VecStore Nix source hash: ${source_hash}"
@@ -176,4 +176,4 @@ jobs:
           git push \
             "https://x-access-token:${GH_TOKEN}@github.com/PhilipJohnBasile/nixpkgs.git" \
             HEAD:sync/vecstore-nix-ready-v2 \
-            --force
+            --force-with-lease=refs/heads/sync/vecstore-nix-ready-v2:dab930edcfdf4ea9cb1eae64b60577599dae79ea
