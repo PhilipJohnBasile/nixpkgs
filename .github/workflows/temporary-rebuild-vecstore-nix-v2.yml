@@ -59,8 +59,8 @@ jobs:
           git add maintainers/maintainer-list.nix
           git commit -s -m "maintainers: add philipjohnbasile"
 
-          version="0.1.0-unstable-2026-07-10"
-          revision="82fb7c5e572c5d9aca73ff5facdc5365d9133503"
+          version="0.1.0-unstable-2026-09-01"
+          revision="93ef59cf8d105ea7af951af8fdca79ccf9d06110"
           source_url="https://github.com/PhilipJohnBasile/vecstore/archive/${revision}.tar.gz"
           source_hash="$(nix store prefetch-file --json --unpack "$source_url" | python -c 'import json,sys; print(json.load(sys.stdin)["hash"])')"
           echo "VecStore Nix source hash: ${source_hash}"
@@ -79,8 +79,6 @@ jobs:
           rustPlatform.buildRustPackage (finalAttrs: {
             pname = "vecstore";
             version = "${version}";
-            __structuredAttrs = true;
-
             src = fetchFromGitHub {
               owner = "PhilipJohnBasile";
               repo = "vecstore";
