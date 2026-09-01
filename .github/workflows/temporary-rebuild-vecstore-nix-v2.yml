@@ -98,8 +98,6 @@ jobs:
             cargoBuildFlags = [
               "--bin"
               "vecstore-server"
-              "--jobs"
-              "1"
             ];
 
             passthru.updateScript = unstableGitUpdater { };
@@ -136,7 +134,7 @@ jobs:
           in pkgs.callPackage ${package_path} { inherit lib; }"
 
           set +e
-          nix-build --no-out-link -E "$build_expr" 2>&1 | tee /tmp/vecstore-fake-hash.log
+          nix-build --cores 1 --no-out-link -E "$build_expr" 2>&1 | tee /tmp/vecstore-fake-hash.log
           build_rc=${PIPESTATUS[0]}
           set -e
           test "$build_rc" -ne 0
@@ -158,7 +156,7 @@ jobs:
 
           nix shell "$formatter_ref" -c nixfmt pkgs/by-name/ve/vecstore/package.nix
           nix-instantiate --parse pkgs/by-name/ve/vecstore/package.nix >/dev/null
-          nix-build --no-out-link -E "$build_expr"
+          nix-build --cores 1 --no-out-link -E "$build_expr"
           git diff --check
           git add pkgs/by-name/ve/vecstore/package.nix
           git commit -s -m "vecstore: init at ${version}"
